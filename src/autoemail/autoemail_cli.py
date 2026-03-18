@@ -71,7 +71,18 @@ def send(
     ],
     subject: Annotated[str, typer.Option(help="Email subject.")],
     recipients: Annotated[List[str], typer.Option("--recipients", help="Recipient email addresses.")],
-    body: Annotated[str, typer.Option(help="Email body (plain text or HTML).")],
+    body: Annotated[
+        Optional[str],
+        typer.Option(help="Email body — plain text or HTML string."),
+    ] = None,
+    body_file: Annotated[
+        Optional[str],
+        typer.Option(
+            "--body-file",
+            help="Path to a file whose content becomes the email body. "
+                 "Mutually exclusive with --body.",
+        ),
+    ] = None,
     # ── Content (optional) ──────────────────────────────────────────────────
     sender: Annotated[
         Optional[str],
@@ -128,6 +139,22 @@ def send(
       [dim]# Dry run (preview without sending)[/dim]
       autoemail ... --dry-run
     """
+    if body and body_file:
+        typer.echo("[ERROR] --body and --body-file are mutually exclusive.", err=True)
+        raise typer.Exit(1)
+
+    if body_file:
+        try:
+            with open(body_file, "r", encoding="utf-8") as fh:
+                body = fh.read()
+        except OSError as exc:
+            typer.echo(f"[ERROR] Cannot read --body-file: {exc}", err=True)
+            raise typer.Exit(1)
+
+    if not body:
+        typer.echo("[ERROR] Either --body or --body-file is required.", err=True)
+        raise typer.Exit(1)
+
     try:
         email_obj = str_to_enum(EmailObject, email_type)
     except ValueError as e:

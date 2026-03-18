@@ -11,7 +11,8 @@ Run `autoemail --help` for full usage with formatted output.
 | `--host` | Yes | — | Environment (`Domain1`, `Domain2`, `Domain3`) or custom relay as `relay:domain` (e.g. `smtp.gmail.com:gmail.com`) |
 | `--subject` | Yes | — | Email subject line |
 | `--recipients` | Yes | — | Recipient address. Repeat flag for multiple. |
-| `--body` | Yes | — | Email body — plain text or HTML string |
+| `--body` | No* | — | Email body — plain text or HTML string |
+| `--body-file` | No* | — | Path to a file to use as the email body. Mutually exclusive with `--body`. |
 | `--sender` | No | `<user>@<host.domain>` | Sender address (SMTP only) |
 | `--cc` | No | — | CC address. Repeat flag for multiple. |
 | `--bcc` | No | — | BCC address. Repeat flag for multiple. |
@@ -24,6 +25,8 @@ Run `autoemail --help` for full usage with formatted output.
 | `--password` | No | `$AUTOEMAIL_PASSWORD` | SMTP login password (hidden in prompts) |
 | `--tls` / `--no-tls` | No | `--no-tls` | Enable STARTTLS |
 | `--version` | No | — | Print version and exit |
+
+*Exactly one of `--body` or `--body-file` is required.
 
 ## Examples
 
@@ -60,6 +63,16 @@ Run `autoemail --help` for full usage with formatted output.
       --subject "Test" \
       --recipients friend@example.com \
       --body "Hello from the CLI"
+    ```
+
+=== "Body from file"
+
+    ```bash
+    autoemail --type smtp --host Domain1 \
+      --subject "Report" \
+      --recipients user@hr.acme.com \
+      --body-file /path/to/report-body.html \
+      --html
     ```
 
 === "Dry-run preview"

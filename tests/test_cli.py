@@ -84,3 +84,44 @@ def test_html_flag():
     with mock_smtp():
         result = runner.invoke(app, BASE + ["--html"])
     assert result.exit_code == 0
+
+
+def test_body_file_sends_file_content(tmp_path):
+    body_file = tmp_path / "body.txt"
+    body_file.write_text("Hello from file")
+    with mock_smtp() as smtp:
+        result = runner.invoke(app, [
+            "--type", "smtp", "--host", "Domain1",
+            "--subject", "T", "--recipients", "a@b.com",
+            "--body-file", str(body_file),
+        ])
+    assert result.exit_code == 0
+    sent = smtp.send_message.call_args[0][0]
+    assert "Hello from file" in sent.get_payload()
+
+
+def test_body_and_body_file_mutual_exclusion():
+    result = runner.invoke(app, [
+        "--type", "smtp", "--host", "Domain1",
+        "--subject", "T", "--recipients", "a@b.com",
+        "--body", "Hi",
+        "--body-file", "somefile.txt",
+    ])
+    assert result.exit_code == 1
+
+
+def test_neither_body_nor_body_file_exits_1():
+    result = runner.invoke(app, [
+        "--type", "smtp", "--host", "Domain1",
+        "--subject", "T", "--recipients", "a@b.com",
+    ])
+    assert result.exit_code == 1
+
+
+def test_body_file_not_found_exits_1(tmp_path):
+    result = runner.invoke(app, [
+        "--type", "smtp", "--host", "Domain1",
+        "--subject", "T", "--recipients", "a@b.com",
+        "--body-file", str(tmp_path / "missing.txt"),
+    ])
+    assert result.exit_code == 1
