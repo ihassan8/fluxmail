@@ -7,10 +7,11 @@ runner = CliRunner()
 
 BASE = [
     "--type", "smtp",
-    "--host", "Domain1",
+    "--host", "smtp.example.com",
     "--subject", "Test",
     "--recipients", "user@example.com",
     "--body", "Hello",
+    "--username", "sender@example.com",
 ]
 
 
@@ -40,29 +41,52 @@ def test_dry_run():
 
 
 def test_invalid_type_exits_1():
-    args = ["--type", "fax", "--host", "Domain1",
-            "--subject", "T", "--recipients", "a@b.com", "--body", "Hi"]
+    args = ["--type", "fax", "--host", "smtp.example.com",
+            "--subject", "T", "--recipients", "a@b.com", "--body", "Hi",
+            "--username", "sender@example.com"]
     result = runner.invoke(app, args)
     assert result.exit_code == 1
 
 
-def test_invalid_host_exits_1():
-    # A host string with no colon and no matching EmailEnv name → BadParameter → exit 1.
-    # Do NOT use "relay:domain" format here — that is a valid custom EmailInstance.
-    args = ["--type", "smtp", "--host", "NotAValidHost",
+def test_no_sender_and_no_email_username_exits_2():
+    # username is not an email address → _handle_sender raises → exit 2
+    args = ["--type", "smtp", "--host", "smtp.example.com",
+            "--subject", "T", "--recipients", "a@b.com", "--body", "Hi",
+            "--username", "apikey"]
+    result = runner.invoke(app, args)
+    assert result.exit_code == 2
+
+
+def test_no_sender_no_username_exits_2():
+    args = ["--type", "smtp", "--host", "smtp.example.com",
             "--subject", "T", "--recipients", "a@b.com", "--body", "Hi"]
     result = runner.invoke(app, args)
-    assert result.exit_code == 1
+    assert result.exit_code == 2
+
+
+def test_bare_relay_host():
+    with mock_smtp():
+        args = [
+            "--type", "smtp",
+            "--host", "smtp.example.com",
+            "--subject", "T",
+            "--recipients", "a@b.com",
+            "--body", "Hi",
+            "--username", "sender@example.com",
+        ]
+        result = runner.invoke(app, args)
+    assert result.exit_code == 0
 
 
 def test_custom_host_relay_colon_syntax():
     with mock_smtp():
         args = [
             "--type", "smtp",
-            "--host", "smtp.example.gov:example.gov",
+            "--host", "smtp.example.com:example.com",
             "--subject", "T",
-            "--recipients", "a@example.gov",
+            "--recipients", "a@b.com",
             "--body", "Hi",
+            "--username", "sender@example.com",
         ]
         result = runner.invoke(app, args)
     assert result.exit_code == 0
@@ -71,11 +95,12 @@ def test_custom_host_relay_colon_syntax():
 def test_multiple_recipients():
     with mock_smtp():
         result = runner.invoke(app, [
-            "--type", "smtp", "--host", "Domain1",
+            "--type", "smtp", "--host", "smtp.example.com",
             "--subject", "T",
             "--recipients", "a@b.com",
             "--recipients", "c@d.com",
             "--body", "Hi",
+            "--username", "sender@example.com",
         ])
     assert result.exit_code == 0
 
@@ -91,9 +116,10 @@ def test_body_file_sends_file_content(tmp_path):
     body_file.write_text("Hello from file")
     with mock_smtp() as smtp:
         result = runner.invoke(app, [
-            "--type", "smtp", "--host", "Domain1",
+            "--type", "smtp", "--host", "smtp.example.com",
             "--subject", "T", "--recipients", "a@b.com",
             "--body-file", str(body_file),
+            "--username", "sender@example.com",
         ])
     assert result.exit_code == 0
     sent = smtp.send_message.call_args[0][0]
@@ -102,26 +128,29 @@ def test_body_file_sends_file_content(tmp_path):
 
 def test_body_and_body_file_mutual_exclusion():
     result = runner.invoke(app, [
-        "--type", "smtp", "--host", "Domain1",
+        "--type", "smtp", "--host", "smtp.example.com",
         "--subject", "T", "--recipients", "a@b.com",
         "--body", "Hi",
         "--body-file", "somefile.txt",
+        "--username", "sender@example.com",
     ])
     assert result.exit_code == 1
 
 
 def test_neither_body_nor_body_file_exits_1():
     result = runner.invoke(app, [
-        "--type", "smtp", "--host", "Domain1",
+        "--type", "smtp", "--host", "smtp.example.com",
         "--subject", "T", "--recipients", "a@b.com",
+        "--username", "sender@example.com",
     ])
     assert result.exit_code == 1
 
 
 def test_body_file_not_found_exits_1(tmp_path):
     result = runner.invoke(app, [
-        "--type", "smtp", "--host", "Domain1",
+        "--type", "smtp", "--host", "smtp.example.com",
         "--subject", "T", "--recipients", "a@b.com",
         "--body-file", str(tmp_path / "missing.txt"),
+        "--username", "sender@example.com",
     ])
     assert result.exit_code == 1

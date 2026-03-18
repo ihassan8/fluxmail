@@ -1,5 +1,5 @@
 site_name: AutoEmail
-site_description: Internal email automation — SMTP and Outlook via CLI or Python API
+site_description: Send emails from Python or the terminal — any SMTP server, zero config.
 site_url: https://vertex-ai-automations.github.io/autoemail
 site_dir: public
 repo_name: AutoEmail
@@ -72,7 +72,7 @@ nav:
   - Overview: index.md
   - Getting Started:
     - Installation: installation.md
-    - Org Configuration: getting-started/org-config.md
+    - Configuration: getting-started/configuration.md
     - CLI Usage: getting-started/cli_usage.md
     - Python API: getting-started/usage.md
   - Reference:

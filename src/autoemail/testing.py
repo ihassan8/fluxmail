@@ -13,11 +13,13 @@ def mock_smtp():
     Examples
     --------
     >>> from autoemail.testing import mock_smtp
-    >>> from autoemail import AutoEmail, EmailEnv, EmailObject
+    >>> from autoemail import AutoEmail, EmailInstance, EmailObject
     >>> with mock_smtp() as smtp:
-    ...     AutoEmail(object_type=EmailObject.SMTP, host=EmailEnv.Domain1).create(
-    ...         subject="Hi", recipients=["a@b.com"], body="Hello"
-    ...     ).send()
+    ...     AutoEmail(
+    ...         object_type=EmailObject.SMTP,
+    ...         host=EmailInstance(relay="smtp.example.com"),
+    ...         username="sender@example.com",
+    ...     ).create(subject="Hi", recipients=["a@b.com"], body="Hello").send()
     ...     smtp.send_message.assert_called_once()
     """
     mock_instance = MagicMock()

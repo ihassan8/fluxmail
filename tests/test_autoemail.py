@@ -1,41 +1,54 @@
 import pytest
-from autoemail import AutoEmail, AutoEmailException, EmailEnv, EmailInstance, EmailObject
+from autoemail import AutoEmail, AutoEmailException, EmailInstance, EmailObject
 from autoemail.testing import mock_smtp
 
-
-GOV_HOST = EmailInstance(relay="smtp.test.gov", domain="hr.test.gov")
+HOST = EmailInstance(relay="smtp.example.com")
 
 
 # ── __init__ ─────────────────────────────────────────────────────────────────
 
 class TestInit:
     def test_smtp_object_type(self):
-        e = AutoEmail(object_type=EmailObject.SMTP, host=EmailEnv.Domain1)
+        e = AutoEmail(object_type=EmailObject.SMTP, host=HOST)
         assert e.is_smtp()
         assert not e.is_outlook()
 
     def test_string_type_accepted(self):
-        e = AutoEmail(object_type="smtp", host=EmailEnv.Domain1)
+        e = AutoEmail(object_type="smtp", host=HOST)
         assert e.is_smtp()
 
-    def test_custom_emailinstance_host(self):
-        e = AutoEmail(object_type="smtp", host=GOV_HOST)
-        assert e.host == GOV_HOST
+    def test_emailinstance_host(self):
+        e = AutoEmail(object_type="smtp", host=HOST)
+        assert e.host == HOST
+
+    def test_bare_string_host(self):
+        e = AutoEmail(object_type="smtp", host="smtp.example.com")
+        assert e.host.relay == "smtp.example.com"
+        assert e.host.domain == ""
+
+    def test_relay_colon_domain_string_host(self):
+        e = AutoEmail(object_type="smtp", host="smtp.example.com:example.com")
+        assert e.host.relay == "smtp.example.com"
+        assert e.host.domain == "example.com"
 
     def test_invalid_type_raises(self):
         with pytest.raises(ValueError):
-            AutoEmail(object_type="fax", host=EmailEnv.Domain1)
+            AutoEmail(object_type="fax", host=HOST)
+
+    def test_invalid_host_type_raises(self):
+        with pytest.raises(TypeError):
+            AutoEmail(object_type="smtp", host=12345)
 
     def test_invalid_logger_raises(self):
         with pytest.raises(AutoEmailException):
-            AutoEmail(object_type="smtp", host=EmailEnv.Domain1, logger="not-a-logger")
+            AutoEmail(object_type="smtp", host=HOST, logger="not-a-logger")
 
     def test_default_port(self):
-        e = AutoEmail(object_type="smtp", host=EmailEnv.Domain1)
+        e = AutoEmail(object_type="smtp", host=HOST)
         assert e.port == 25
 
     def test_custom_port(self):
-        e = AutoEmail(object_type="smtp", host=EmailEnv.Domain1, port=587)
+        e = AutoEmail(object_type="smtp", host=HOST, port=587)
         assert e.port == 587
 
 
@@ -93,17 +106,38 @@ class TestCreate:
         )
         assert "r@b.com" in smtp_email.message["Reply-To"]
 
-    def test_sender_validated_when_explicit(self, gov_host):
-        e = AutoEmail(object_type="smtp", host=gov_host)
-        e.create(subject="Hi", recipients=["user@hr.test.gov"], body="Hi",
-                 sender="sender@hr.test.gov")
-        assert e.message["From"] == "sender@hr.test.gov"
+    # ── sender logic ──────────────────────────────────────────────────────────
 
-    def test_explicit_sender_wrong_domain_raises(self, gov_host):
-        e = AutoEmail(object_type="smtp", host=gov_host)
-        with pytest.raises(AutoEmailException):
-            e.create(subject="Hi", recipients=["user@hr.test.gov"], body="Hi",
-                     sender="sender@other.gov")
+    def test_sender_defaults_to_username_when_email(self):
+        e = AutoEmail(object_type="smtp", host=HOST, username="me@example.com")
+        e.create(subject="Hi", recipients=["a@b.com"], body="Hi")
+        assert e.message["From"] == "me@example.com"
+
+    def test_explicit_sender_used_over_username(self):
+        e = AutoEmail(object_type="smtp", host=HOST, username="auth@example.com")
+        e.create(subject="Hi", recipients=["a@b.com"], body="Hi",
+                 sender="noreply@example.com")
+        assert e.message["From"] == "noreply@example.com"
+
+    def test_sender_raises_when_username_not_email(self):
+        e = AutoEmail(object_type="smtp", host=HOST, username="apikey")
+        with pytest.raises(AutoEmailException, match="sender is required"):
+            e.create(subject="Hi", recipients=["a@b.com"], body="Hi")
+
+    def test_sender_raises_when_no_username(self):
+        e = AutoEmail(object_type="smtp", host=HOST)
+        with pytest.raises(AutoEmailException, match="sender is required"):
+            e.create(subject="Hi", recipients=["a@b.com"], body="Hi")
+
+    def test_explicit_sender_set_on_message(self, smtp_email):
+        smtp_email.create(subject="Hi", recipients=["a@b.com"], body="Hi",
+                          sender="custom@example.com")
+        assert smtp_email.message["From"] == "custom@example.com"
+
+    def test_any_recipient_domain_accepted(self, smtp_email):
+        # Previously non-Domain1 hosts enforced .gov recipients — now any domain works
+        smtp_email.create(subject="Hi", recipients=["user@gmail.com"], body="Hi")
+        assert "user@gmail.com" in smtp_email.message["To"]
 
 
 # ── send() ───────────────────────────────────────────────────────────────────
@@ -127,29 +161,31 @@ class TestSend:
 
     def test_send_with_tls_calls_starttls(self):
         with mock_smtp() as smtp:
-            e = AutoEmail(object_type="smtp", host=EmailEnv.Domain1, use_tls=True)
+            e = AutoEmail(object_type="smtp", host=HOST, use_tls=True,
+                          username="u@example.com")
             e.create(subject="Hi", recipients=["a@b.com"], body="Hello")
             e.send()
         smtp.starttls.assert_called_once()
 
     def test_send_without_tls_does_not_starttls(self):
         with mock_smtp() as smtp:
-            e = AutoEmail(object_type="smtp", host=EmailEnv.Domain1, use_tls=False)
+            e = AutoEmail(object_type="smtp", host=HOST, use_tls=False,
+                          username="u@example.com")
             e.create(subject="Hi", recipients=["a@b.com"], body="Hello")
             e.send()
         smtp.starttls.assert_not_called()
 
     def test_send_with_credentials_calls_login(self):
         with mock_smtp() as smtp:
-            e = AutoEmail(object_type="smtp", host=EmailEnv.Domain1,
-                          username="u", password="p")
+            e = AutoEmail(object_type="smtp", host=HOST,
+                          username="u@example.com", password="p")
             e.create(subject="Hi", recipients=["a@b.com"], body="Hello")
             e.send()
-        smtp.login.assert_called_once_with("u", "p")
+        smtp.login.assert_called_once_with("u@example.com", "p")
 
     def test_send_without_credentials_skips_login(self):
         with mock_smtp() as smtp:
-            e = AutoEmail(object_type="smtp", host=EmailEnv.Domain1)
+            e = AutoEmail(object_type="smtp", host=HOST, username="u@example.com")
             e.create(subject="Hi", recipients=["a@b.com"], body="Hello")
             e.send()
         smtp.login.assert_not_called()
@@ -253,7 +289,8 @@ class TestContextManager:
         mock_cls = MagicMock(return_value=mock_conn)
 
         with patch("autoemail.autoemail.smtplib.SMTP", mock_cls):
-            with AutoEmail(object_type="smtp", host=EmailEnv.Domain1) as mailer:
+            with AutoEmail(object_type="smtp", host=HOST,
+                           username="u@example.com") as mailer:
                 mailer.create(subject="A", recipients=["a@b.com"], body="1").send()
                 mailer.create(subject="B", recipients=["a@b.com"], body="2").send()
 
@@ -266,14 +303,15 @@ class TestContextManager:
         mock_cls = MagicMock(return_value=mock_conn)
 
         with patch("autoemail.autoemail.smtplib.SMTP", mock_cls):
-            with AutoEmail(object_type="smtp", host=EmailEnv.Domain1) as mailer:
+            with AutoEmail(object_type="smtp", host=HOST,
+                           username="u@example.com") as mailer:
                 mailer.create(subject="A", recipients=["a@b.com"], body="1").send()
 
         mock_conn.quit.assert_called_once()
 
     def test_send_outside_context_still_works(self):
         with mock_smtp() as smtp:
-            e = AutoEmail(object_type="smtp", host=EmailEnv.Domain1)
+            e = AutoEmail(object_type="smtp", host=HOST, username="u@example.com")
             e.create(subject="Hi", recipients=["a@b.com"], body="Hello").send()
         smtp.send_message.assert_called_once()
 

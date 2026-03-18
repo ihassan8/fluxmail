@@ -5,7 +5,7 @@ from typing_extensions import Annotated
 
 from . import __version__
 from .autoemail import AutoEmail, AutoEmailException, EmailObject
-from .utils import EmailEnv, EmailInstance, str_to_enum
+from .utils import EmailInstance, str_to_enum
 
 app = typer.Typer(
     name="autoemail",
@@ -15,36 +15,26 @@ app = typer.Typer(
 )
 
 
-def _resolve_host(host_str: str) -> "EmailEnv | EmailInstance":
-    """Try built-in EmailEnv first; fall back to custom relay:domain syntax.
+def _resolve_host(host_str: str) -> EmailInstance:
+    """Parse a host string into an ``EmailInstance``.
+
+    Accepts either a bare relay hostname or a ``relay:domain`` pair.
 
     Parameters
     ----------
     host_str : str
-        Host string — either an ``EmailEnv`` member name (e.g. ``"Domain1"``)
-        or a custom relay in ``relay:domain`` format (e.g. ``"smtp.gmail.com:gmail.com"``).
+        Relay hostname (e.g. ``"smtp.gmail.com"``) or
+        ``"relay:domain"`` pair (e.g. ``"smtp.gmail.com:gmail.com"``).
 
     Returns
     -------
-    EmailEnv or EmailInstance
-        Resolved host object.
-
-    Raises
-    ------
-    typer.BadParameter
-        If the string does not match a known ``EmailEnv`` and is not in ``relay:domain`` format.
+    EmailInstance
+        Parsed host object.
     """
-    try:
-        return str_to_enum(EmailEnv, host_str)
-    except ValueError:
-        pass
     if ":" in host_str:
         relay, domain = host_str.split(":", 1)
         return EmailInstance(relay=relay.strip(), domain=domain.strip())
-    raise typer.BadParameter(
-        f"Unknown host '{host_str}'. Use Domain1/Domain2/Domain3 "
-        f"or a custom relay as 'relay:domain' (e.g. [bold]smtp.gmail.com:gmail.com[/bold])."
-    )
+    return EmailInstance(relay=host_str.strip())
 
 
 def _version_callback(value: bool):
@@ -64,13 +54,14 @@ def send(
         str,
         typer.Option(
             help=(
-                "Host environment ([bold]Domain1[/bold], [bold]Domain2[/bold], [bold]Domain3[/bold]) "
-                "or a custom relay as [bold]relay:domain[/bold] (e.g. smtp.gmail.com:gmail.com)."
+                "SMTP relay hostname (e.g. [bold]smtp.gmail.com[/bold]) or a "
+                "[bold]relay:domain[/bold] pair (e.g. [bold]smtp.gmail.com:gmail.com[/bold])."
             )
         ),
     ],
     subject: Annotated[str, typer.Option(help="Email subject.")],
     recipients: Annotated[List[str], typer.Option("--recipients", help="Recipient email addresses.")],
+    # ── Body (one of --body or --body-file is required) ──────────────────────
     body: Annotated[
         Optional[str],
         typer.Option(help="Email body — plain text or HTML string."),
@@ -86,7 +77,12 @@ def send(
     # ── Content (optional) ──────────────────────────────────────────────────
     sender: Annotated[
         Optional[str],
-        typer.Option(help="Sender address (SMTP only). Defaults to <current_user>@<host.domain>."),
+        typer.Option(
+            help=(
+                "Sender address (SMTP only). Defaults to [bold]--username[/bold] "
+                "when it is a valid email address."
+            )
+        ),
     ] = None,
     cc: Annotated[Optional[List[str]], typer.Option(help="CC email addresses.")] = None,
     bcc: Annotated[Optional[List[str]], typer.Option(help="BCC email addresses.")] = None,
@@ -104,7 +100,13 @@ def send(
     port: Annotated[int, typer.Option(help="SMTP port. Use 587 for STARTTLS.")] = 25,
     username: Annotated[
         Optional[str],
-        typer.Option(help="SMTP username.", envvar="AUTOEMAIL_USERNAME"),
+        typer.Option(
+            help=(
+                "SMTP username. When this is a valid email address it also serves "
+                "as the default sender if [bold]--sender[/bold] is not set."
+            ),
+            envvar="AUTOEMAIL_USERNAME",
+        ),
     ] = None,
     password: Annotated[
         Optional[str],
@@ -128,13 +130,15 @@ def send(
 
     [bold]Examples:[/bold]
 
-      [dim]# Built-in relay[/dim]
-      autoemail --type smtp --host Domain1 --subject "Hi" --recipients user@hr.acme.com --body "Hello"
-
-      [dim]# Custom relay with TLS auth (credentials from env vars)[/dim]
+      [dim]# Gmail with TLS (credentials from env vars)[/dim]
       AUTOEMAIL_USERNAME=me@gmail.com AUTOEMAIL_PASSWORD=secret \\
-        autoemail --type smtp --host smtp.gmail.com:gmail.com --port 587 --tls \\
+        autoemail --type smtp --host smtp.gmail.com --port 587 --tls \\
         --subject "Hi" --recipients friend@example.com --body "Hello"
+
+      [dim]# Explicit relay:domain pair[/dim]
+      autoemail --type smtp --host smtp.myrelay.com:mycompany.com \\
+        --subject "Hi" --recipients user@mycompany.com --body "Hello" \\
+        --sender noreply@mycompany.com
 
       [dim]# Dry run (preview without sending)[/dim]
       autoemail ... --dry-run
@@ -161,11 +165,7 @@ def send(
         typer.echo(f"[ERROR] Invalid --type: {e}", err=True)
         raise typer.Exit(1)
 
-    try:
-        email_host = _resolve_host(host)
-    except typer.BadParameter as e:
-        typer.echo(f"[ERROR] Invalid --host: {e}", err=True)
-        raise typer.Exit(1)
+    email_host = _resolve_host(host)
 
     try:
         email = AutoEmail(

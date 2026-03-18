@@ -24,13 +24,15 @@ python -m build    # produces wheel + sdist in dist/
 The CLI is built with **Typer**. Run `autoemail --help` for full usage with Rich-formatted output.
 
 ```bash
-# Built-in relay
-autoemail --type smtp --host Domain1 --subject "Test" --recipients user@hr.acme.com --body "Hello"
-
-# Custom relay with TLS (credentials via env vars)
+# Gmail with TLS (credentials via env vars)
 AUTOEMAIL_USERNAME=me@gmail.com AUTOEMAIL_PASSWORD=secret \
-  autoemail --type smtp --host smtp.gmail.com:gmail.com --port 587 --tls \
+  autoemail --type smtp --host smtp.gmail.com --port 587 --tls \
   --subject "Test" --recipients someone@example.com --body "Hello"
+
+# relay:domain pair
+autoemail --type smtp --host smtp.myrelay.com:mycompany.com \
+  --subject "Test" --recipients user@mycompany.com --body "Hello" \
+  --sender noreply@mycompany.com
 
 # All optional flags
 autoemail ... --sender me@example.com --cc a@x.com --bcc b@x.com \
@@ -63,39 +65,45 @@ Config is in `mkdocs.yml` (project root).
 | File | Role |
 |------|------|
 | `autoemail.py` | `AutoEmail` class — core email creation/sending logic |
-| `utils.py` | `EmailEnv`, `EmailObject`, `EmailInstance` enums/types; validation helpers; `AutoEmailException` |
+| `utils.py` | `EmailObject`, `EmailInstance`, `AutoEmailException`, `validate_email`, `str_to_enum` |
 | `autoemail_cli.py` | Typer-based CLI; calls `AutoEmail` |
-| `__init__.py` | Public exports: `AutoEmail`, `AutoEmailException`, `EmailEnv`, `EmailInstance`, `EmailObject`, `__version__` |
+| `__init__.py` | Public exports: `AutoEmail`, `AutoEmailException`, `EmailInstance`, `EmailObject`, `__version__` |
 | `__main__.py` | `python -m autoemail` entry point |
+| `testing.py` | `mock_smtp()` context manager for tests (not exported from `__init__.py`) |
 
 **Key design decisions:**
 
 - `AutoEmail` uses `__slots__` for memory efficiency.
-- `host` accepts `EmailEnv` (built-in named environments), `EmailInstance(relay=..., domain=...)` (custom server — no source changes needed), or a string name (`"Domain1"`).
-- `EmailEnv` is a hybrid class: it inherits from both `EmailInstance` (a `namedtuple`) and `Enum`. This means each member *is* an `EmailInstance` and can be used wherever one is expected.
-- `EmailEnv` relay/domain values default to `acme.com` placeholders but can be overridden via env vars (`AUTOEMAIL_DOMAIN1_RELAY`, `AUTOEMAIL_DOMAIN1_DOMAIN`, etc.) before import.
-- `detect_domain_mismatches=False` by default — opt in when you need to enforce host/machine domain matching. CI/CD environments (FQDN containing `"runner"`) are automatically skipped.
-- SMTP sends via `smtplib.SMTP`. Supports port, STARTTLS (`use_tls=True`), and login credentials for external servers (Gmail, SendGrid, etc.).
+- `host` accepts `EmailInstance(relay=..., domain=...)` (domain is optional, defaults to `""`), a bare relay string `"smtp.gmail.com"`, or a `"relay:domain"` string `"smtp.gmail.com:gmail.com"`.
+- `EmailInstance` is a `namedtuple` with `relay` required and `domain` optional (default `""`).
+- **Sender resolution**: if `sender=` is not provided, `username` is used when it is a valid email address (works for Gmail, SES, Mailgun). For API-key-style auth (e.g. SendGrid's `"apikey"` username), `sender=` must be passed explicitly.
+- `validate_email()` performs format-only validation — no domain or TLD restrictions.
+- SMTP sends via `smtplib.SMTP`. Supports port, STARTTLS (`use_tls=True`), and login credentials.
 - Outlook sends via `win32com.client` (Windows only). Cannot send programmatically — requires user confirmation.
 - Logging uses `pylogshield`. `get_logger()` is imported from it and returns a standard `logging.Logger`-compatible instance. Pass a custom `logging.Logger` or set `log_level` (a string: `"DEBUG"`, `"INFO"`, `"WARNING"`, `"ERROR"`) in the constructor.
 - `create()` returns `self` — method chaining is supported: `AutoEmail(...).create(...).send()`.
+- `create()` resets `self.message` on each call — the same `AutoEmail` instance can be reused.
 - `display()` returns an email preview string (SMTP) or opens Outlook's display window. `send(dry_run=True)` delegates to `display()` internally.
+- `__enter__`/`__exit__` open a persistent SMTP connection for reuse across multiple sends.
 
 **Typical API flow:**
 
 ```python
-from autoemail import AutoEmail, EmailEnv, EmailObject, EmailInstance
+from autoemail import AutoEmail, EmailInstance
 
-# Built-in relay
-email = AutoEmail(object_type=EmailObject.SMTP, host=EmailEnv.Domain1)
-email.create(subject="Hi", recipients=["user@hr.acme.com"], body="Hello").send()
-
-# Custom relay (any org, any SMTP server)
-custom = EmailInstance(relay="smtp.gmail.com", domain="gmail.com")
-email = AutoEmail(object_type="smtp", host=custom, port=587, use_tls=True,
+# Bare relay string (simplest)
+email = AutoEmail(object_type="smtp", host="smtp.gmail.com",
+                  port=587, use_tls=True,
                   username="me@gmail.com", password="secret")
-email.create(subject="Hi", recipients=["friend@example.com"], body="Hello",
-             bcc=["archive@example.com"], reply_to="noreply@example.com").send()
+email.create(subject="Hi", recipients=["friend@example.com"], body="Hello").send()
+
+# EmailInstance with explicit sender (e.g. SendGrid)
+email = AutoEmail(object_type="smtp",
+                  host=EmailInstance(relay="smtp.sendgrid.net"),
+                  port=587, use_tls=True,
+                  username="apikey", password="SG.xxx")
+email.create(subject="Hi", recipients=["user@example.com"], body="Hello",
+             sender="noreply@myapp.com").send()
 
 # Catch errors
 from autoemail import AutoEmailException
@@ -104,15 +112,6 @@ try:
 except AutoEmailException as e:
     print(e)
 ```
-
-## Email Validation Behavior
-
-`validate_email()` in `utils.py` has a `gov_email` mode that is non-obvious:
-- The **sender** is always validated as a `.gov` address matching `host.domain` (SMTP only).
-- **Recipients, CC** are validated as `.gov` only when the host is not `EmailEnv.Domain1`; Domain1 recipients can be any valid email.
-- **BCC** and `reply_to` always skip `.gov` enforcement regardless of host.
-
-This means an SMTP email to a custom relay or Domain2/Domain3 requires all To/CC addresses to be `.gov` addresses on the host's domain.
 
 ## Python Compatibility
 
@@ -127,18 +126,17 @@ Only update `requirements.txt` when adding dependencies. Both `pyproject.toml` (
 | Code | Meaning |
 |------|---------|
 | `0` | Success |
-| `1` | Invalid `--type` or `--host` argument |
-| `2` | `AutoEmailException` raised during send |
+| `1` | Invalid `--type`, missing body, or `--body`/`--body-file` conflict |
+| `2` | `AutoEmailException` raised during send (e.g. missing sender, SMTP error) |
 | `99` | Unexpected/unhandled exception |
 
 ## Planned Features
 
-An approved design spec for five additive features is planned at `docs/superpowers/specs/2026-03-16-feature-expansion-design.md` (file not yet created):
+Plans for future modules in `docs/superpowers/plans/`:
 1. **`EmailTemplate`** (`template.py`) — Jinja2-based body templating
 2. **`send_async()`** — async SMTP via `aiosmtplib`
 3. **Retry logic** — `max_retries`/`retry_delay` via `tenacity`
-4. **`mock_smtp()`** (`testing.py`) — test-only context manager; not exported from `__init__.py`
-5. **`BulkSender`** (`bulk.py`) — per-recipient send loop with progress bar
+4. **`BulkSender`** (`bulk.py`) — per-recipient send loop with progress bar
 
 New `__slots__` entries are required in `AutoEmail` when adding instance attributes.
 
@@ -148,6 +146,5 @@ Version is managed by `setuptools_scm` from git tags and written to `src/autoema
 
 ## Notes
 
-- No test suite exists in this repository.
-- `EmailEnv` docstrings use the internal org domain names (`acme.com`) as placeholders — update them and the env var defaults when deploying to a real organization.
 - MIME type for SMTP attachments is auto-detected via `mimetypes.guess_type` (stdlib); no extra dependency needed.
+- Tests live in `tests/`. Run with `pytest`. `conftest.py` provides the `smtp_email` fixture (host + username pre-configured).

@@ -16,12 +16,9 @@ from pylogshield import get_logger
 
 from .utils import (
     AutoEmailException,
-    EmailEnv,
+    EMAIL_REGEX,
     EmailInstance,
     EmailObject,
-    detect_host,
-    detect_domain_mismatch,
-    get_current_user,
     str_to_enum,
     validate_email,
 )
@@ -67,10 +64,9 @@ class AutoEmail:
     def __init__(
         self,
         object_type: Union[EmailObject, str],
-        host: Union[EmailEnv, EmailInstance, str, None] = None,
+        host: Union[EmailInstance, str],
         logger: Optional[logging.Logger] = None,
         log_level: str = "WARNING",
-        detect_domain_mismatches: bool = False,
         port: int = 25,
         username: Optional[str] = None,
         password: Optional[str] = None,
@@ -82,22 +78,21 @@ class AutoEmail:
         ----------
         object_type : Union[EmailObject, str]
             Email object type: ``smtp`` or ``outlook``.
-        host : Union[EmailEnv, EmailInstance, str, None], optional
-            SMTP relay host. Accepts an ``EmailEnv`` member, an
-            ``EmailInstance(relay=..., domain=...)`` for custom servers, a string name
-            (e.g. ``"Domain1"``), or ``None`` to auto-detect.
+        host : Union[EmailInstance, str]
+            SMTP relay host. Accepts an ``EmailInstance(relay=..., domain=...)``
+            namedtuple, a bare relay hostname string (e.g. ``"smtp.gmail.com"``),
+            or a ``"relay:domain"`` string (e.g. ``"smtp.gmail.com:gmail.com"``).
         logger : logging.Logger, optional
             Logger instance for logging.
         log_level : str, optional
             Logging level string (e.g. ``"DEBUG"``, ``"INFO"``, ``"WARNING"``, ``"ERROR"``).
             Default: ``"WARNING"``.
-        detect_domain_mismatches : bool, optional
-            Raise an error if the machine's domain does not match the selected host.
-            Default: ``False``.
         port : int, optional
             SMTP port. Default: ``25``. Use ``587`` for STARTTLS.
         username : str, optional
-            SMTP login username.
+            SMTP login username. When this is a valid email address it also
+            serves as the default ``From`` address if ``sender`` is not provided
+            in :meth:`create`.
         password : str, optional
             SMTP login password.
         use_tls : bool, optional
@@ -106,9 +101,9 @@ class AutoEmail:
         Raises
         ------
         AutoEmailException
-            If ``host`` is ``None`` and cannot be auto-detected.
-        AutoEmailException
-            If Outlook is used on a non-Windows OS.
+            If ``host`` is not provided or Outlook is used on a non-Windows OS.
+        TypeError
+            If ``host`` is not a string or ``EmailInstance``.
         """
         self.object_type = str_to_enum(EmailObject, object_type)
         self.port = port
@@ -116,21 +111,18 @@ class AutoEmail:
         self.password = password
         self.use_tls = use_tls
 
-        if host is None:
-            self.host = detect_host()
-        elif isinstance(host, EmailEnv):
-            self.host = host
-        elif isinstance(host, EmailInstance):
+        if isinstance(host, EmailInstance):
             self.host = host
         elif isinstance(host, str):
-            self.host = str_to_enum(EmailEnv, host)
+            if ":" in host:
+                relay, domain = host.split(":", 1)
+                self.host = EmailInstance(relay=relay.strip(), domain=domain.strip())
+            else:
+                self.host = EmailInstance(relay=host.strip())
         else:
             raise TypeError(
-                f"host must be EmailEnv, EmailInstance, or str, got {type(host).__name__}"
+                f"host must be an EmailInstance or a string, got {type(host).__name__}"
             )
-
-        if detect_domain_mismatches and isinstance(self.host, EmailEnv):
-            detect_domain_mismatch(self.host)
 
         if logger and not isinstance(logger, logging.Logger):
             raise AutoEmailException(
@@ -191,7 +183,8 @@ class AutoEmail:
         body : str
             Email content (plain text or HTML).
         sender : str, optional
-            Sender address. Defaults to ``<current_user>@<host.domain>``.
+            Sender address (SMTP only). Defaults to ``username`` if ``username``
+            is a valid email address, otherwise this parameter is required.
         cc : list of str, optional
             CC'd email addresses.
         bcc : list of str, optional
@@ -202,6 +195,15 @@ class AutoEmail:
             Paths to files to attach.
         html_body : bool, optional
             Use HTML format. Default: ``False``.
+        plain_body : str, optional
+            Plain-text fallback body. When provided alongside ``html_body=True``
+            the message is built as ``multipart/alternative``.
+        in_reply_to : str, optional
+            Message-ID of the email being replied to (SMTP only).
+        references : list of str, optional
+            List of Message-IDs forming the thread chain (SMTP only).
+        priority : str, optional
+            Message priority: ``"high"``, ``"normal"``, or ``"low"`` (SMTP only).
 
         Returns
         -------
@@ -243,15 +245,14 @@ class AutoEmail:
     def _handle_sender(self):
         if self.is_smtp():
             if self.sender:
-                self.sender = validate_email(self.sender, self.host, gov_email=True)
+                self.sender = validate_email(self.sender)
+            elif self.username and EMAIL_REGEX.match(self.username.strip().lower()):
+                self.sender = self.username.strip().lower()
             else:
-                try:
-                    self.sender = f"{get_current_user()}@{self.host.domain}"
-                except Exception as e:
-                    msg = f"Failed to get current user. Please use the sender parameter. Error: {e}"
-                    self.logger.error(msg)
-                    raise AutoEmailException(msg)
-
+                raise AutoEmailException(
+                    "sender is required. Pass sender= explicitly, or set username= "
+                    "to a valid email address so it can be used as the From address."
+                )
             self.message["From"] = self.sender
 
         elif self.is_outlook() and self.sender:
@@ -260,10 +261,7 @@ class AutoEmail:
             raise AutoEmailException(msg)
 
     def _handle_recipient(self):
-        validated = [
-            validate_email(email, self.host, gov_email=(self.host != EmailEnv.Domain1))
-            for email in self.recipients
-        ]
+        validated = [validate_email(email) for email in self.recipients]
         if self.is_smtp():
             self.message["To"] = ", ".join(validated)
         elif self.is_outlook():
@@ -271,10 +269,7 @@ class AutoEmail:
 
     def _handle_cc(self):
         if self.cc:
-            validated = [
-                validate_email(email, self.host, gov_email=(self.host != EmailEnv.Domain1))
-                for email in self.cc
-            ]
+            validated = [validate_email(email) for email in self.cc]
             if self.is_smtp():
                 self.message["Cc"] = ", ".join(validated)
             elif self.is_outlook():
@@ -282,10 +277,7 @@ class AutoEmail:
 
     def _handle_bcc(self):
         if self.bcc:
-            validated = [
-                validate_email(email, self.host, gov_email=False)
-                for email in self.bcc
-            ]
+            validated = [validate_email(email) for email in self.bcc]
             if self.is_smtp():
                 self.message["Bcc"] = ", ".join(validated)
             elif self.is_outlook():
@@ -293,7 +285,7 @@ class AutoEmail:
 
     def _handle_reply_to(self):
         if self.reply_to:
-            validated = validate_email(self.reply_to, self.host, gov_email=False)
+            validated = validate_email(self.reply_to)
             if self.is_smtp():
                 self.message["Reply-To"] = validated
             # Outlook COM does not expose a Reply-To field

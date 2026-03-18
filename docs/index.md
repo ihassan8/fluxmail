@@ -34,7 +34,7 @@ hide:
 <div class="feature-item" markdown>
 **:material-email-fast: SMTP**
 
-Send via any SMTP server — built-in org relays or custom external servers with STARTTLS and credential auth.
+Send via any SMTP server — Gmail, SendGrid, SES, Mailgun, or your own relay — with STARTTLS and credential auth.
 </div>
 
 <div class="feature-item" markdown>
@@ -64,11 +64,18 @@ Chainable API: `AutoEmail(...).create(...).send()`. Plugs into any Python script
 === "Python"
 
     ```python
-    from autoemail import AutoEmail, EmailEnv, EmailObject
+    from autoemail import AutoEmail
 
-    AutoEmail(object_type=EmailObject.SMTP, host=EmailEnv.Domain1).create(
+    AutoEmail(
+        object_type="smtp",
+        host="smtp.gmail.com",
+        port=587,
+        use_tls=True,
+        username="me@gmail.com",
+        password="secret",
+    ).create(
         subject="Hello",
-        recipients=["user@hr.acme.com"],
+        recipients=["friend@example.com"],
         body="Hi there!",
     ).send()
     ```
@@ -78,10 +85,11 @@ Chainable API: `AutoEmail(...).create(...).send()`. Plugs into any Python script
     ```bash
     pip install autoemail
 
-    autoemail --type smtp --host Domain1 \
-      --subject "Hello" \
-      --recipients user@hr.acme.com \
-      --body "Hi there!"
+    AUTOEMAIL_USERNAME=me@gmail.com AUTOEMAIL_PASSWORD=secret \
+      autoemail --type smtp --host smtp.gmail.com --port 587 --tls \
+        --subject "Hello" \
+        --recipients friend@example.com \
+        --body "Hi there!"
     ```
 
 ---
@@ -98,7 +106,7 @@ Chainable API: `AutoEmail(...).create(...).send()`. Plugs into any Python script
 
 - :material-eye-outline: **Dry-run preview** — inspect the full email before it leaves your machine
 
-- :material-server-network: **Flexible host config** — built-in named environments or any custom `relay:domain` pair
+- :material-server-network: **Any SMTP relay** — pass a hostname string or `EmailInstance`; works with Gmail, SendGrid, SES, and self-hosted servers
 
 - :material-python: **Python 3.8+ compatible** — runs on any modern Python; no breaking syntax used
 

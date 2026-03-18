@@ -1,11 +1,23 @@
 import pytest
 
-from autoemail import AutoEmailException, EmailEnv, EmailInstance, EmailObject
-from autoemail.utils import (
-    detect_domain_mismatch,
-    str_to_enum,
-    validate_email,
-)
+from autoemail import AutoEmailException, EmailInstance, EmailObject
+from autoemail.utils import str_to_enum, validate_email
+
+
+# ── EmailInstance ─────────────────────────────────────────────────────────────
+
+class TestEmailInstance:
+    def test_relay_required(self):
+        e = EmailInstance(relay="smtp.example.com")
+        assert e.relay == "smtp.example.com"
+
+    def test_domain_defaults_to_empty(self):
+        e = EmailInstance(relay="smtp.example.com")
+        assert e.domain == ""
+
+    def test_domain_explicit(self):
+        e = EmailInstance(relay="smtp.example.com", domain="example.com")
+        assert e.domain == "example.com"
 
 
 # ── str_to_enum ──────────────────────────────────────────────────────────────
@@ -31,76 +43,36 @@ class TestStrToEnum:
         with pytest.raises(TypeError):
             str_to_enum(EmailObject, 123)
 
-    def test_emailenv_by_name(self):
-        assert str_to_enum(EmailEnv, "Domain1") == EmailEnv.Domain1
-
-    def test_emailenv_case_insensitive(self):
-        assert str_to_enum(EmailEnv, "domain1") == EmailEnv.Domain1
-
 
 # ── validate_email ───────────────────────────────────────────────────────────
 
 class TestValidateEmail:
-    HOST = EmailInstance(relay="r", domain="example.com")
-    GOV  = EmailInstance(relay="r", domain="hr.test.gov")
-
     def test_valid_email_returned(self):
-        assert validate_email("user@example.com", self.HOST) == "user@example.com"
+        assert validate_email("user@example.com") == "user@example.com"
 
     def test_strips_and_lowercases(self):
-        assert validate_email("  User@Example.COM  ", self.HOST) == "user@example.com"
+        assert validate_email("  User@Example.COM  ") == "user@example.com"
 
     def test_strips_trailing_dot(self):
-        assert validate_email("user@example.com.", self.HOST) == "user@example.com"
+        assert validate_email("user@example.com.") == "user@example.com"
 
     def test_missing_at_raises(self):
         with pytest.raises(AutoEmailException):
-            validate_email("notanemail", self.HOST)
+            validate_email("notanemail")
 
     def test_dot_before_at_raises(self):
         with pytest.raises(AutoEmailException):
-            validate_email(".@example.com", self.HOST)
+            validate_email(".@example.com")
 
     def test_at_before_dot_raises(self):
         with pytest.raises(AutoEmailException):
-            validate_email("user@.example.com", self.HOST)
+            validate_email("user@.example.com")
 
     def test_empty_string_raises(self):
         with pytest.raises(AutoEmailException):
-            validate_email("", self.HOST)
+            validate_email("")
 
-    def test_gov_email_valid(self):
-        assert validate_email("user@hr.test.gov", self.GOV, gov_email=True) == "user@hr.test.gov"
-
-    def test_gov_email_wrong_tld_raises(self):
-        with pytest.raises(AutoEmailException, match=r"\.gov"):
-            validate_email("user@hr.test.com", self.GOV, gov_email=True)
-
-    def test_gov_email_wrong_domain_raises(self):
-        with pytest.raises(AutoEmailException, match="must match domain"):
-            validate_email("user@other.test.gov", self.GOV, gov_email=True)
-
-    def test_bcc_skips_gov_check(self):
-        # gov_email=False (BCC/reply-to path) must accept non-.gov address even on gov host
-        assert validate_email("user@gmail.com", self.GOV, gov_email=False) == "user@gmail.com"
-
-
-# ── detect_domain_mismatch ───────────────────────────────────────────────────
-
-class TestDetectDomainMismatch:
-    def test_matching_domain_does_not_raise(self, monkeypatch):
-        monkeypatch.setattr("autoemail.utils.get_domain", lambda: "machine.hr.acme.com")
-        detect_domain_mismatch(EmailEnv.Domain1)  # should not raise
-
-    def test_mismatched_domain_raises(self, monkeypatch):
-        monkeypatch.setattr("autoemail.utils.get_domain", lambda: "machine.ops.acme.com")
-        with pytest.raises(AutoEmailException, match="Mismatch"):
-            detect_domain_mismatch(EmailEnv.Domain1)
-
-    def test_ci_runner_skipped(self, monkeypatch):
-        monkeypatch.setattr("autoemail.utils.get_domain", lambda: "runner.github.com")
-        detect_domain_mismatch(EmailEnv.Domain1)  # should not raise
-
-    def test_single_label_hostname_skipped(self, monkeypatch):
-        monkeypatch.setattr("autoemail.utils.get_domain", lambda: "localhost")
-        detect_domain_mismatch(EmailEnv.Domain1)  # should not raise
+    def test_any_domain_accepted(self):
+        # Previously only .gov was enforced for gov hosts — now any domain passes
+        assert validate_email("user@gmail.com") == "user@gmail.com"
+        assert validate_email("user@company.org") == "user@company.org"
