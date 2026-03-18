@@ -124,6 +124,57 @@ email.display()
 !!! note "BCC"
     Works on both SMTP and Outlook.
 
+## Multipart Email (HTML + Plain Text Fallback)
+
+When `html_body=True` and `plain_body` is provided, the message is sent as
+`multipart/alternative` so clients that cannot render HTML show the plain-text version:
+
+```python
+email.create(
+    subject="Report",
+    recipients=["user@hr.acme.com"],
+    body="<h1>Report</h1>",
+    html_body=True,
+    plain_body="Report — see the HTML version for formatting.",
+)
+```
+
+## Threading
+
+Link replies to existing threads using standard email headers:
+
+```python
+email.create(
+    subject="Re: Question",
+    recipients=["user@hr.acme.com"],
+    body="Following up.",
+    in_reply_to="<original-message-id@example.com>",
+    references=["<original-message-id@example.com>"],
+)
+```
+
+## Priority
+
+```python
+email.create(
+    subject="URGENT",
+    recipients=["user@hr.acme.com"],
+    body="Please respond ASAP.",
+    priority="high",   # "high", "normal", or "low"
+)
+```
+
+## Connection Reuse
+
+Use `AutoEmail` as a context manager to hold one SMTP connection open across
+multiple sends — useful for bulk operations:
+
+```python
+with AutoEmail(object_type="smtp", host=EmailEnv.Domain1) as mailer:
+    for recipient in recipients:
+        mailer.create(subject="Hi", recipients=[recipient], body="Hello").send()
+```
+
 ## Error Handling
 
 !!! tip
