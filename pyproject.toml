@@ -47,4 +47,7 @@ dependencies = {file = ["requirements.txt"]}
 # Auto generate _version.py with the corresponding git tag
 version_file = "src/autoemail/_version.py"
 
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+
 
