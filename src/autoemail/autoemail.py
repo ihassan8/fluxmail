@@ -27,6 +27,13 @@ from .utils import (
 )
 
 
+_PRIORITY_MAP = {
+    "high":   ("1", "High",   "High"),
+    "normal": ("3", "Normal", "Normal"),
+    "low":    ("5", "Low",    "Low"),
+}
+
+
 class AutoEmail:
     """Automates email creation and sending using SMTP or Outlook."""
 
@@ -40,6 +47,7 @@ class AutoEmail:
         "subject",
         "recipients",
         "body",
+        "plain_body",
         "sender",
         "cc",
         "bcc",
@@ -50,6 +58,10 @@ class AutoEmail:
         "username",
         "password",
         "use_tls",
+        "in_reply_to",
+        "references",
+        "priority",
+        "_smtp_conn",
     )
 
     def __init__(
@@ -130,6 +142,11 @@ class AutoEmail:
         self.log_level = log_level
         self.message = None
         self.is_created = False
+        self.plain_body = None
+        self.in_reply_to = None
+        self.references = None
+        self.priority = None
+        self._smtp_conn = None
 
         self.logger.debug("Initializing AutoEmail instance...")
 
@@ -158,6 +175,10 @@ class AutoEmail:
         reply_to: Optional[str] = None,
         attachments: Optional[List[str]] = None,
         html_body: bool = False,
+        plain_body: Optional[str] = None,
+        in_reply_to: Optional[str] = None,
+        references: Optional[List[str]] = None,
+        priority: Optional[str] = None,
     ) -> "AutoEmail":
         """Creates an email with the specified details.
 
@@ -187,15 +208,24 @@ class AutoEmail:
         AutoEmail
             Returns ``self`` to support method chaining.
         """
+        # Reset so create() can be called again on the same instance.
+        if self.is_smtp():
+            self.message = EmailMessage()
+        self.is_created = False
+
         self.subject = subject
         self.recipients = recipients
         self.body = body
+        self.plain_body = plain_body
         self.sender = sender
         self.cc = cc
         self.bcc = bcc
         self.reply_to = reply_to
         self.input_path = attachments
         self.html_body = html_body
+        self.in_reply_to = in_reply_to
+        self.references = references
+        self.priority = priority
 
         self._validate_parameters()
         self._handle_sender()
@@ -203,6 +233,8 @@ class AutoEmail:
         self._handle_cc()
         self._handle_bcc()
         self._handle_reply_to()
+        self._handle_threading()
+        self._handle_priority()
         self._set_content_type()
         self._attach_files()
         self.is_created = True
@@ -277,15 +309,41 @@ class AutoEmail:
             raise AutoEmailException("BCC must be a list.")
         if self.input_path and not isinstance(self.input_path, list):
             raise AutoEmailException("Attachments must be a list.")
+        if self.priority and self.priority not in _PRIORITY_MAP:
+            raise AutoEmailException(
+                f"priority must be one of {list(_PRIORITY_MAP.keys())}, got '{self.priority}'"
+            )
 
         if self.is_smtp():
             self.message["Subject"] = self.subject
         elif self.is_outlook():
             self.message.Subject = self.subject
 
+    def _handle_threading(self) -> None:
+        if not self.is_smtp():
+            return
+        if self.in_reply_to:
+            self.message["In-Reply-To"] = self.in_reply_to
+        if self.references:
+            self.message["References"] = " ".join(self.references)
+
+    def _handle_priority(self) -> None:
+        if not self.priority or not self.is_smtp():
+            return
+        x_prio, importance, ms_prio = _PRIORITY_MAP[self.priority]
+        self.message["X-Priority"] = x_prio
+        self.message["Importance"] = importance
+        self.message["X-MSMail-Priority"] = ms_prio
+
     def _set_content_type(self):
         if self.is_smtp():
-            self.message.set_content(self.body, subtype="html" if self.html_body else "plain")
+            if self.html_body and self.plain_body:
+                self.message.set_content(self.plain_body, subtype="plain")
+                self.message.add_alternative(self.body, subtype="html")
+            else:
+                self.message.set_content(
+                    self.body, subtype="html" if self.html_body else "plain"
+                )
         elif self.is_outlook():
             self.message.BodyFormat = 2 if self.html_body else 1
             if self.html_body:
@@ -373,12 +431,15 @@ class AutoEmail:
 
         try:
             if self.is_smtp() and self.host.relay:
-                with smtplib.SMTP(self.host.relay, self.port) as smtp:
-                    if self.use_tls:
-                        smtp.starttls()
-                    if self.username and self.password:
-                        smtp.login(self.username, self.password)
-                    smtp.send_message(self.message)
+                if self._smtp_conn is not None:
+                    self._smtp_conn.send_message(self.message)
+                else:
+                    with smtplib.SMTP(self.host.relay, self.port) as smtp:
+                        if self.use_tls:
+                            smtp.starttls()
+                        if self.username and self.password:
+                            smtp.login(self.username, self.password)
+                        smtp.send_message(self.message)
                 return "Email sent successfully via SMTP."
             elif self.is_outlook():
                 raise AutoEmailException(
@@ -390,6 +451,25 @@ class AutoEmail:
             msg = f"Send failed: {e}"
             self.logger.error(msg)
             raise AutoEmailException(msg)
+
+    def __enter__(self) -> "AutoEmail":
+        """Open a persistent SMTP connection for reuse across multiple sends."""
+        if self.is_smtp():
+            self._smtp_conn = smtplib.SMTP(self.host.relay, self.port)
+            if self.use_tls:
+                self._smtp_conn.starttls()
+            if self.username and self.password:
+                self._smtp_conn.login(self.username, self.password)
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb) -> bool:
+        if self._smtp_conn is not None:
+            try:
+                self._smtp_conn.quit()
+            except Exception:
+                pass
+            self._smtp_conn = None
+        return False
 
     def __repr__(self) -> str:
         return (

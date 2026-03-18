@@ -162,6 +162,122 @@ class TestSend:
                 smtp_email.send()
 
 
+# ── multipart ────────────────────────────────────────────────────────────────
+
+class TestMultipart:
+    def test_html_with_plain_body_creates_multipart(self, smtp_email):
+        smtp_email.create(
+            subject="Hi", recipients=["a@b.com"],
+            body="<h1>Hello</h1>",
+            html_body=True,
+            plain_body="Hello",
+        )
+        assert isinstance(smtp_email.message.get_payload(), list)
+
+    def test_html_without_plain_body_is_not_multipart(self, smtp_email):
+        smtp_email.create(
+            subject="Hi", recipients=["a@b.com"],
+            body="<h1>Hello</h1>",
+            html_body=True,
+        )
+        assert isinstance(smtp_email.message.get_payload(), str)
+
+    def test_plain_body_ignored_when_html_body_false(self, smtp_email):
+        smtp_email.create(
+            subject="Hi", recipients=["a@b.com"],
+            body="Hello",
+            html_body=False,
+            plain_body="ignored",
+        )
+        assert isinstance(smtp_email.message.get_payload(), str)
+
+
+# ── threading headers ─────────────────────────────────────────────────────────
+
+class TestThreadingHeaders:
+    def test_in_reply_to_set(self, smtp_email):
+        smtp_email.create(
+            subject="Re: Hi", recipients=["a@b.com"], body="Reply",
+            in_reply_to="<abc123@example.com>",
+        )
+        assert smtp_email.message["In-Reply-To"] == "<abc123@example.com>"
+
+    def test_references_set(self, smtp_email):
+        smtp_email.create(
+            subject="Re: Hi", recipients=["a@b.com"], body="Reply",
+            references=["<msg1@example.com>", "<msg2@example.com>"],
+        )
+        assert "<msg1@example.com>" in smtp_email.message["References"]
+        assert "<msg2@example.com>" in smtp_email.message["References"]
+
+    def test_no_threading_headers_by_default(self, smtp_email):
+        smtp_email.create(subject="Hi", recipients=["a@b.com"], body="Hi")
+        assert smtp_email.message["In-Reply-To"] is None
+        assert smtp_email.message["References"] is None
+
+
+# ── priority headers ──────────────────────────────────────────────────────────
+
+class TestPriorityHeaders:
+    def test_high_priority_sets_headers(self, smtp_email):
+        smtp_email.create(
+            subject="URGENT", recipients=["a@b.com"], body="Hi", priority="high"
+        )
+        assert smtp_email.message["X-Priority"] == "1"
+        assert smtp_email.message["Importance"] == "High"
+        assert smtp_email.message["X-MSMail-Priority"] == "High"
+
+    def test_low_priority(self, smtp_email):
+        smtp_email.create(
+            subject="FYI", recipients=["a@b.com"], body="Hi", priority="low"
+        )
+        assert smtp_email.message["X-Priority"] == "5"
+
+    def test_invalid_priority_raises(self, smtp_email):
+        with pytest.raises(AutoEmailException, match="priority"):
+            smtp_email.create(
+                subject="Hi", recipients=["a@b.com"], body="Hi", priority="urgent"
+            )
+
+    def test_no_priority_headers_by_default(self, smtp_email):
+        smtp_email.create(subject="Hi", recipients=["a@b.com"], body="Hi")
+        assert smtp_email.message["X-Priority"] is None
+
+
+# ── context manager ───────────────────────────────────────────────────────────
+
+class TestContextManager:
+    def test_context_manager_reuses_connection(self):
+        from unittest.mock import patch, MagicMock
+        mock_conn = MagicMock()
+        mock_cls = MagicMock(return_value=mock_conn)
+
+        with patch("autoemail.autoemail.smtplib.SMTP", mock_cls):
+            with AutoEmail(object_type="smtp", host=EmailEnv.Domain1) as mailer:
+                mailer.create(subject="A", recipients=["a@b.com"], body="1").send()
+                mailer.create(subject="B", recipients=["a@b.com"], body="2").send()
+
+        mock_cls.assert_called_once()
+        assert mock_conn.send_message.call_count == 2
+
+    def test_context_manager_calls_quit_on_exit(self):
+        from unittest.mock import patch, MagicMock
+        mock_conn = MagicMock()
+        mock_cls = MagicMock(return_value=mock_conn)
+
+        with patch("autoemail.autoemail.smtplib.SMTP", mock_cls):
+            with AutoEmail(object_type="smtp", host=EmailEnv.Domain1) as mailer:
+                mailer.create(subject="A", recipients=["a@b.com"], body="1").send()
+
+        mock_conn.quit.assert_called_once()
+
+    def test_send_outside_context_still_works(self):
+        with mock_smtp() as smtp:
+            e = AutoEmail(object_type="smtp", host=EmailEnv.Domain1)
+            e.create(subject="Hi", recipients=["a@b.com"], body="Hello").send()
+        smtp.send_message.assert_called_once()
+
+
 # ── display() ────────────────────────────────────────────────────────────────
 
 class TestDisplay:
