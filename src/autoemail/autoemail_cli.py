@@ -87,7 +87,7 @@ def send(
     ] = None,
     html: Annotated[bool, typer.Option("--html/--no-html", help="Treat body as HTML.")] = False,
     dry_run: Annotated[
-        bool, typer.Option("--dry-run", help="Preview the email without sending.")
+        bool, typer.Option("--dry-run/--no-dry-run", help="Preview the email without sending.")
     ] = False,
     # ── SMTP connection ──────────────────────────────────────────────────────
     port: Annotated[int, typer.Option(help="SMTP port. Use 587 for STARTTLS.")] = 25,
@@ -106,11 +106,12 @@ def send(
     tls: Annotated[bool, typer.Option("--tls/--no-tls", help="Enable STARTTLS.")] = False,
     # ── Meta ────────────────────────────────────────────────────────────────
     version: Annotated[
-        Optional[bool],
+        bool,
         typer.Option(
-            "--version", callback=_version_callback, is_eager=True, help="Show version and exit."
+            "--version", callback=_version_callback, is_eager=True,
+            help="Show version and exit."
         ),
-    ] = None,
+    ] = False,
 ):
     """Send an email via SMTP or Outlook.
 
