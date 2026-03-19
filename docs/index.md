@@ -4,7 +4,7 @@ hide:
 ---
 
 <div class="hero" markdown>
-<img src="img/autoemail_192x192.png" alt="FluxMail">
+<img src="img/fluxmail_192x192.png" alt="FluxMail">
 
 # FluxMail
 
