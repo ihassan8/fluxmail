@@ -7,17 +7,17 @@
 
 [![PyPI version](https://img.shields.io/pypi/v/fluxmail?color=2563eb&logo=pypi&logoColor=white)](https://pypi.org/project/fluxmail/)
 [![Python versions](https://img.shields.io/pypi/pyversions/fluxmail?color=2563eb&logo=python&logoColor=white)](https://pypi.org/project/fluxmail/)
-[![License: MIT](https://img.shields.io/badge/license-MIT-2563eb.svg)](https://github.com/vertex-ai-automations/autoemail/blob/main/LICENSE.txt)
+[![License: MIT](https://img.shields.io/badge/license-MIT-2563eb.svg)](https://github.com/vertex-ai-automations/fluxmail/blob/main/LICENSE.txt)
 [![Downloads](https://img.shields.io/pypi/dm/fluxmail?color=2563eb)](https://pypi.org/project/fluxmail/)
-[![CI](https://img.shields.io/github/actions/workflow/status/vertex-ai-automations/autoemail/release.yml?branch=main&label=CI&logo=github)](https://github.com/vertex-ai-automations/autoemail/actions)
-[![Docs](https://img.shields.io/badge/docs-online-2563eb?logo=readthedocs&logoColor=white)](https://vertex-ai-automations.github.io/autoemail)
+[![CI](https://img.shields.io/github/actions/workflow/status/vertex-ai-automations/fluxmail/release.yml?branch=main&label=CI&logo=github)](https://github.com/vertex-ai-automations/fluxmail/actions)
+[![Docs](https://img.shields.io/badge/docs-online-2563eb?logo=readthedocs&logoColor=white)](https://vertex-ai-automations.github.io/fluxmail)
 
 <br/>
 
 <p>
-<a href="https://vertex-ai-automations.github.io/autoemail"><strong>📃 Documentation</strong></a>
+<a href="https://vertex-ai-automations.github.io/fluxmail"><strong>📃 Documentation</strong></a>
 &nbsp;·&nbsp;
-<a href="https://github.com/vertex-ai-automations/autoemail/issues/new">🔧 Report Bug</a>
+<a href="https://github.com/vertex-ai-automations/fluxmail/issues/new">🔧 Report Bug</a>
 &nbsp;·&nbsp;
 <a href="https://www.vertexaiautomations.com">⛪ Vertex AI Automations</a>
 </p>
@@ -85,7 +85,7 @@ FluxMail(
 ).send()
 ```
 
-**Full documentation:** 👉 [vertex-ai-automations.github.io/autoemail](https://vertex-ai-automations.github.io/autoemail)
+**Full documentation:** 👉 [vertex-ai-automations.github.io/fluxmail](https://vertex-ai-automations.github.io/fluxmail)
 
 ---
 
@@ -100,7 +100,7 @@ export FLUXMAIL_PASSWORD=secret
 
 Works with any SMTP provider — Gmail, SendGrid, Amazon SES, Mailgun, Office 365, or a self-hosted relay.
 
-See [Configuration](https://vertex-ai-automations.github.io/autoemail/getting-started/configuration/) for provider-specific settings.
+See [Configuration](https://vertex-ai-automations.github.io/fluxmail/getting-started/configuration/) for provider-specific settings.
 
 ---
 
@@ -111,10 +111,10 @@ You can also open an issue with the label `enhancement`.
 
 Don't forget to ⭐ star the project!
 
-🔶 [View all contributors](https://github.com/vertex-ai-automations/autoemail/graphs/contributors)
+🔶 [View all contributors](https://github.com/vertex-ai-automations/fluxmail/graphs/contributors)
 
 ---
 
-📃 [Full Docs](https://vertex-ai-automations.github.io/autoemail) &nbsp;·&nbsp; 🔧 [Report a Bug](https://github.com/vertex-ai-automations/autoemail/issues/new) &nbsp;·&nbsp; ⛪ [Vertex AI Automations](https://www.vertexaiautomations.com)
+📃 [Full Docs](https://vertex-ai-automations.github.io/fluxmail) &nbsp;·&nbsp; 🔧 [Report a Bug](https://github.com/vertex-ai-automations/fluxmail/issues/new) &nbsp;·&nbsp; ⛪ [Vertex AI Automations](https://www.vertexaiautomations.com)
 
 <p align="right">(<a href="#readme-top">back to top</a>)</p>

@@ -13,8 +13,8 @@ Requires **Python 3.8 or later**.
 === "From source"
 
     ```bash
-    git clone https://github.com/vertex-ai-automations/autoemail.git
-    cd autoemail
+    git clone https://github.com/vertex-ai-automations/fluxmail.git
+    cd fluxmail
     pip install -e .
     ```
 
