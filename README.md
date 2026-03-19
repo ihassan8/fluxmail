@@ -1,7 +1,7 @@
 <a name="readme-top"></a>
 
 <div align="center">
-<img src="https://github.com/vertex-ai-automations/fluxmail/raw/master/docs/img/fluxmail.png" alt="FluxMail Logo" width="420">
+<img src="https://github.com/vertex-ai-automations/fluxmail/raw/main/docs/img/fluxmail.png" alt="FluxMail Logo" width="420">
 
 <br/>
 
