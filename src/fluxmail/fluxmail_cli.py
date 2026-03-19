@@ -4,11 +4,11 @@ import typer
 from typing_extensions import Annotated
 
 from . import __version__
-from .autoemail import AutoEmail, AutoEmailException, EmailObject
+from .fluxmail import FluxMail, FluxMailException, EmailObject
 from .utils import EmailInstance, str_to_enum
 
 app = typer.Typer(
-    name="autoemail",
+    name="fluxmail",
     help="Send emails via SMTP or Outlook.",
     no_args_is_help=True,
     rich_markup_mode="rich",
@@ -39,7 +39,7 @@ def _resolve_host(host_str: str) -> EmailInstance:
 
 def _version_callback(value: bool):
     if value:
-        typer.echo(f"autoemail {__version__}")
+        typer.echo(f"fluxmail {__version__}")
         raise typer.Exit()
 
 
@@ -105,14 +105,14 @@ def send(
                 "SMTP username. When this is a valid email address it also serves "
                 "as the default sender if [bold]--sender[/bold] is not set."
             ),
-            envvar="AUTOEMAIL_USERNAME",
+            envvar="FLUXMAIL_USERNAME",
         ),
     ] = None,
     password: Annotated[
         Optional[str],
         typer.Option(
-            help="SMTP password. Reads from [bold]AUTOEMAIL_PASSWORD[/bold] env var if not set.",
-            envvar="AUTOEMAIL_PASSWORD",
+            help="SMTP password. Reads from [bold]FLUXMAIL_PASSWORD[/bold] env var if not set.",
+            envvar="FLUXMAIL_PASSWORD",
             hide_input=True,
         ),
     ] = None,
@@ -131,17 +131,17 @@ def send(
     [bold]Examples:[/bold]
 
       [dim]# Gmail with TLS (credentials from env vars)[/dim]
-      AUTOEMAIL_USERNAME=me@gmail.com AUTOEMAIL_PASSWORD=secret \\
-        autoemail --type smtp --host smtp.gmail.com --port 587 --tls \\
+      FLUXMAIL_USERNAME=me@gmail.com FLUXMAIL_PASSWORD=secret \\
+        fluxmail --type smtp --host smtp.gmail.com --port 587 --tls \\
         --subject "Hi" --recipients friend@example.com --body "Hello"
 
       [dim]# Explicit relay:domain pair[/dim]
-      autoemail --type smtp --host smtp.myrelay.com:mycompany.com \\
+      fluxmail --type smtp --host smtp.myrelay.com:mycompany.com \\
         --subject "Hi" --recipients user@mycompany.com --body "Hello" \\
         --sender noreply@mycompany.com
 
       [dim]# Dry run (preview without sending)[/dim]
-      autoemail ... --dry-run
+      fluxmail ... --dry-run
     """
     if body and body_file:
         typer.echo("[ERROR] --body and --body-file are mutually exclusive.", err=True)
@@ -168,7 +168,7 @@ def send(
     email_host = _resolve_host(host)
 
     try:
-        email = AutoEmail(
+        email = FluxMail(
             object_type=email_obj,
             host=email_host,
             port=port,
@@ -189,8 +189,8 @@ def send(
         )
         result = email.send(dry_run=dry_run)
         typer.echo(result)
-    except AutoEmailException as e:
-        typer.echo(f"[AutoEmail ERROR] {e}", err=True)
+    except FluxMailException as e:
+        typer.echo(f"[FluxMail ERROR] {e}", err=True)
         raise typer.Exit(2)
     except Exception as e:
         typer.echo(f"[UNEXPECTED ERROR] {e}", err=True)

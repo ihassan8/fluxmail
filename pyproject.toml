@@ -3,8 +3,8 @@ requires = ["setuptools>=68", "wheel", "setuptools_scm"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "autoemail" 
-description = "A Python library for Email Automation. This allows you to create and send emails using either SMTP or Outlook. It supports both Windows and Linux platforms (with Outlook available only on Windows)"
+name = "fluxmail"
+description = "A Python library for Email Automation. FluxMail allows you to create and send emails using either SMTP or Outlook. It supports both Windows and Linux platforms (with Outlook available only on Windows)"
 authors = [
     {name = "Vertex AI Automations", email = "info@vertexaiautomations.com"}
 ]
@@ -24,7 +24,7 @@ classifiers = [
     "Typing :: Typed",
 ]
 requires-python = ">=3.8"
-keywords = ["email", "automation", "smtp", "outlook", "domain"]
+keywords = ["email", "automation", "smtp", "outlook", "domain", "fluxmail"]
 
 dynamic = ["version", "dependencies"]
 license = 'MIT'
@@ -32,12 +32,12 @@ license-files = ['LICENSE']
 
 [project.urls]
 homepage = "https://www.vertexaiautomations.com"
-documentation = "https://vertex-ai-automations.github.io/autoemail"
-repository = 'https://github.com/vertex-ai-automations/autoemail'
-issues = "https://github.com/vertex-ai-automations/autoemail/issues/new"
+documentation = "https://vertex-ai-automations.github.io/fluxmail"
+repository = 'https://github.com/vertex-ai-automations/fluxmail'
+issues = "https://github.com/vertex-ai-automations/fluxmail/issues/new"
 
 [project.scripts]
-autoemail = "autoemail.autoemail_cli:main"
+fluxmail = "fluxmail.fluxmail_cli:main"
 
 # version and requirements are dynamically pulled from setup.py. We may enable this in future if setup.py gets deprecated
 [tool.setuptools.dynamic]
@@ -45,7 +45,7 @@ dependencies = {file = ["requirements.txt"]}
 
 [tool.setuptools_scm]
 # Auto generate _version.py with the corresponding git tag
-version_file = "src/autoemail/_version.py"
+version_file = "src/fluxmail/_version.py"
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

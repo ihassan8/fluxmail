@@ -1,14 +1,14 @@
 <a name="readme-top"></a>
 
 <div align="center">
-<img src="https://github.com/vertex-ai-automations/autoemail/raw/main/docs/img/autoemail.png" alt="AutoEmail Logo" width="420">
+<img src="https://github.com/vertex-ai-automations/autoemail/raw/main/docs/img/autoemail.png" alt="FluxMail Logo" width="420">
 
 <br/>
 
-[![PyPI version](https://img.shields.io/pypi/v/autoemail?color=2563eb&logo=pypi&logoColor=white)](https://pypi.org/project/autoemail/)
-[![Python versions](https://img.shields.io/pypi/pyversions/autoemail?color=2563eb&logo=python&logoColor=white)](https://pypi.org/project/autoemail/)
+[![PyPI version](https://img.shields.io/pypi/v/fluxmail?color=2563eb&logo=pypi&logoColor=white)](https://pypi.org/project/fluxmail/)
+[![Python versions](https://img.shields.io/pypi/pyversions/fluxmail?color=2563eb&logo=python&logoColor=white)](https://pypi.org/project/fluxmail/)
 [![License: MIT](https://img.shields.io/badge/license-MIT-2563eb.svg)](https://github.com/vertex-ai-automations/autoemail/blob/main/LICENSE.txt)
-[![Downloads](https://img.shields.io/pypi/dm/autoemail?color=2563eb)](https://pypi.org/project/autoemail/)
+[![Downloads](https://img.shields.io/pypi/dm/fluxmail?color=2563eb)](https://pypi.org/project/fluxmail/)
 [![CI](https://img.shields.io/github/actions/workflow/status/vertex-ai-automations/autoemail/release.yml?branch=main&label=CI&logo=github)](https://github.com/vertex-ai-automations/autoemail/actions)
 [![Docs](https://img.shields.io/badge/docs-online-2563eb?logo=readthedocs&logoColor=white)](https://vertex-ai-automations.github.io/autoemail)
 
@@ -47,31 +47,41 @@ via CLI or Python API. Outlook support is Windows-only (requires `pywin32`).
 ### Installation
 
 ```bash
-pip install autoemail
+pip install fluxmail
 ```
 
 ```bash
-pip install --upgrade autoemail   # upgrade
+pip install --upgrade fluxmail   # upgrade
 ```
 
 ### CLI
 
 ```bash
-autoemail --type smtp --host Domain1 \
-  --subject "Weekly Report" \
-  --recipients user@hr.acme.com \
-  --body "Please find this week's report below."
+export FLUXMAIL_USERNAME=me@gmail.com
+export FLUXMAIL_PASSWORD=secret
+
+fluxmail --type smtp --host smtp.gmail.com --port 587 --tls \
+  --subject "Hello" \
+  --recipients friend@example.com \
+  --body "Hi from the CLI!"
 ```
 
 ### Python API
 
 ```python
-from autoemail import AutoEmail, EmailEnv, EmailObject
+from fluxmail import FluxMail
 
-AutoEmail(object_type=EmailObject.SMTP, host=EmailEnv.Domain1).create(
-    subject="Weekly Report",
-    recipients=["user@hr.acme.com"],
-    body="Please find this week's report below.",
+FluxMail(
+    object_type="smtp",
+    host="smtp.gmail.com",
+    port=587,
+    use_tls=True,
+    username="me@gmail.com",
+    password="secret",
+).create(
+    subject="Hello",
+    recipients=["friend@example.com"],
+    body="Hi there!",
 ).send()
 ```
 
@@ -81,21 +91,16 @@ AutoEmail(object_type=EmailObject.SMTP, host=EmailEnv.Domain1).create(
 
 ## ⚙️ Configuration
 
-Override built-in relay environments with env vars (set before import):
+Pass credentials via environment variables so they never appear in shell history:
 
 ```bash
-export AUTOEMAIL_DOMAIN1_RELAY=mail.hr.yourorg.com
-export AUTOEMAIL_DOMAIN1_DOMAIN=hr.yourorg.com
+export FLUXMAIL_USERNAME=me@gmail.com
+export FLUXMAIL_PASSWORD=secret
 ```
 
-Store credentials safely:
+Works with any SMTP provider — Gmail, SendGrid, Amazon SES, Mailgun, Office 365, or a self-hosted relay.
 
-```bash
-export AUTOEMAIL_USERNAME=me@yourorg.com
-export AUTOEMAIL_PASSWORD=secret
-```
-
-See [Org Configuration](https://vertex-ai-automations.github.io/autoemail/getting-started/org-config/) for full details.
+See [Configuration](https://vertex-ai-automations.github.io/autoemail/getting-started/configuration/) for provider-specific settings.
 
 ---
 

@@ -1,10 +1,10 @@
 # Org Configuration
 
-Configure AutoEmail for your organization's email infrastructure before first use.
+Configure FluxMail for your organization's email infrastructure before first use.
 
 ## Built-in Environments
 
-AutoEmail ships with three named environments that map to SMTP relay servers and domains:
+FluxMail ships with three named environments that map to SMTP relay servers and domains:
 
 | Environment | Default Relay | Default Domain |
 |-------------|---------------|----------------|
@@ -18,46 +18,46 @@ are configured via environment variables (see below).
 ## Overriding Relay and Domain
 
 !!! danger "Import-time evaluation"
-    Environment variables are read **once** when `autoemail` is first imported.
+    Environment variables are read **once** when `fluxmail` is first imported.
     Set them in your shell profile, `.env` file, or deployment config **before**
     the module is imported — changes made after import have no effect.
 
 ```bash
-export AUTOEMAIL_DOMAIN1_RELAY=mail.hr.yourorg.com
-export AUTOEMAIL_DOMAIN1_DOMAIN=hr.yourorg.com
+export FLUXMAIL_DOMAIN1_RELAY=mail.hr.yourorg.com
+export FLUXMAIL_DOMAIN1_DOMAIN=hr.yourorg.com
 
-export AUTOEMAIL_DOMAIN2_RELAY=mail.ops.yourorg.com
-export AUTOEMAIL_DOMAIN2_DOMAIN=ops.yourorg.com
+export FLUXMAIL_DOMAIN2_RELAY=mail.ops.yourorg.com
+export FLUXMAIL_DOMAIN2_DOMAIN=ops.yourorg.com
 
-export AUTOEMAIL_DOMAIN3_RELAY=mail.server.yourorg.com
-export AUTOEMAIL_DOMAIN3_DOMAIN=server.yourorg.com
+export FLUXMAIL_DOMAIN3_RELAY=mail.server.yourorg.com
+export FLUXMAIL_DOMAIN3_DOMAIN=server.yourorg.com
 ```
 
 For the CLI, set these in your shell profile (`~/.bashrc`, `~/.zshrc`) or in a
-wrapper script that calls `autoemail`.
+wrapper script that calls `fluxmail`.
 
 ## Auto Domain Detection
 
-Pass `host=None` in the Python API to let AutoEmail automatically detect the
+Pass `host=None` in the Python API to let FluxMail automatically detect the
 correct environment from the machine's fully-qualified domain name (FQDN):
 
 ```python
 # Selects the EmailEnv whose domain matches this machine's FQDN
-from autoemail import AutoEmail
+from fluxmail import FluxMail
 
-email = AutoEmail(object_type="smtp", host=None)
+email = FluxMail(object_type="smtp", host=None)
 ```
 
-AutoEmail calls `socket.getfqdn()` and matches the result against each configured
+FluxMail calls `socket.getfqdn()` and matches the result against each configured
 `EmailEnv` domain. The first match wins. If no environment matches,
-`AutoEmailException` is raised with a descriptive message.
+`FluxMailException` is raised with a descriptive message.
 
 !!! note
     The `"runner"` CI bypass applies only to domain-mismatch validation
     (`detect_domain_mismatches=True`), not to `host=None` auto-detection.
-    If you use `host=None` in a CI environment, AutoEmail will still attempt
+    If you use `host=None` in a CI environment, FluxMail will still attempt
     to match the machine FQDN against configured domains and raise
-    `AutoEmailException` if none match.
+    `FluxMailException` if none match.
 
 The `--host` flag is required in the CLI and does not support auto-detection.
 
@@ -86,10 +86,10 @@ prefer environment variables over inline flags to keep secrets out of shell hist
 and process listings:
 
 ```bash
-export AUTOEMAIL_USERNAME=me@yourorg.com
-export AUTOEMAIL_PASSWORD=secret
+export FLUXMAIL_USERNAME=me@yourorg.com
+export FLUXMAIL_PASSWORD=secret
 ```
 
-The CLI reads `AUTOEMAIL_USERNAME` and `AUTOEMAIL_PASSWORD` automatically. The
+The CLI reads `FLUXMAIL_USERNAME` and `FLUXMAIL_PASSWORD` automatically. The
 `--username` and `--password` flags also work but will appear in `ps` output and
 shell history — avoid for production or shared systems.

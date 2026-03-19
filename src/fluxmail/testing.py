@@ -1,4 +1,4 @@
-"""Test utilities for AutoEmail — not exported from __init__.py."""
+"""Test utilities for FluxMail — not exported from __init__.py."""
 from contextlib import contextmanager
 from unittest.mock import MagicMock, patch
 
@@ -12,10 +12,10 @@ def mock_smtp():
 
     Examples
     --------
-    >>> from autoemail.testing import mock_smtp
-    >>> from autoemail import AutoEmail, EmailInstance, EmailObject
+    >>> from fluxmail.testing import mock_smtp
+    >>> from fluxmail import FluxMail, EmailInstance, EmailObject
     >>> with mock_smtp() as smtp:
-    ...     AutoEmail(
+    ...     FluxMail(
     ...         object_type=EmailObject.SMTP,
     ...         host=EmailInstance(relay="smtp.example.com"),
     ...         username="sender@example.com",
@@ -27,5 +27,5 @@ def mock_smtp():
     mock_cls.return_value.__enter__ = MagicMock(return_value=mock_instance)
     mock_cls.return_value.__exit__ = MagicMock(return_value=False)
 
-    with patch("autoemail.autoemail.smtplib.SMTP", mock_cls):
+    with patch("fluxmail.fluxmail.smtplib.SMTP", mock_cls):
         yield mock_instance

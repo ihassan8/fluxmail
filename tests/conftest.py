@@ -1,13 +1,13 @@
 import pytest
 
-from autoemail import EmailInstance, EmailObject
-from autoemail.autoemail import AutoEmail
+from fluxmail import EmailInstance, EmailObject
+from fluxmail.fluxmail import FluxMail
 
 
 @pytest.fixture
 def smtp_email():
-    """AutoEmail instance with a test relay and sender username."""
-    return AutoEmail(
+    """FluxMail instance with a test relay and sender username."""
+    return FluxMail(
         object_type=EmailObject.SMTP,
         host=EmailInstance(relay="smtp.example.com"),
         username="sender@example.com",

@@ -15,7 +15,7 @@ else:
 from pylogshield import get_logger
 
 from .utils import (
-    AutoEmailException,
+    FluxMailException,
     EMAIL_REGEX,
     EmailInstance,
     EmailObject,
@@ -31,7 +31,7 @@ _PRIORITY_MAP = {
 }
 
 
-class AutoEmail:
+class FluxMail:
     """Automates email creation and sending using SMTP or Outlook."""
 
     __slots__ = (
@@ -72,7 +72,7 @@ class AutoEmail:
         password: Optional[str] = None,
         use_tls: bool = False,
     ):
-        """Initializes the AutoEmail class.
+        """Initializes the FluxMail class.
 
         Parameters
         ----------
@@ -100,7 +100,7 @@ class AutoEmail:
 
         Raises
         ------
-        AutoEmailException
+        FluxMailException
             If ``host`` is not provided or Outlook is used on a non-Windows OS.
         TypeError
             If ``host`` is not a string or ``EmailInstance``.
@@ -125,12 +125,12 @@ class AutoEmail:
             )
 
         if logger and not isinstance(logger, logging.Logger):
-            raise AutoEmailException(
+            raise FluxMailException(
                 "logger must be an instance of logging.Logger. "
                 "Use get_logger() from pylogshield or Python's standard logging module."
             )
 
-        self.logger = logger or get_logger("autoemail", log_level=log_level)
+        self.logger = logger or get_logger("fluxmail", log_level=log_level)
         self.log_level = log_level
         self.message = None
         self.is_created = False
@@ -140,13 +140,13 @@ class AutoEmail:
         self.priority = None
         self._smtp_conn = None
 
-        self.logger.debug("Initializing AutoEmail instance...")
+        self.logger.debug("Initializing FluxMail instance...")
 
         if self.is_smtp():
             self.message = EmailMessage()
         elif self.is_outlook():
             if win32 is None:
-                raise AutoEmailException("Outlook is only supported on Windows OS.")
+                raise FluxMailException("Outlook is only supported on Windows OS.")
             ol_app = win32.Dispatch("outlook.application")
             self.message = ol_app.CreateItem(0)
 
@@ -171,7 +171,7 @@ class AutoEmail:
         in_reply_to: Optional[str] = None,
         references: Optional[List[str]] = None,
         priority: Optional[str] = None,
-    ) -> "AutoEmail":
+    ) -> "FluxMail":
         """Creates an email with the specified details.
 
         Parameters
@@ -207,7 +207,7 @@ class AutoEmail:
 
         Returns
         -------
-        AutoEmail
+        FluxMail
             Returns ``self`` to support method chaining.
         """
         # Reset so create() can be called again on the same instance.
@@ -249,7 +249,7 @@ class AutoEmail:
             elif self.username and EMAIL_REGEX.match(self.username.strip().lower()):
                 self.sender = self.username.strip().lower()
             else:
-                raise AutoEmailException(
+                raise FluxMailException(
                     "sender is required. Pass sender= explicitly, or set username= "
                     "to a valid email address so it can be used as the From address."
                 )
@@ -258,7 +258,7 @@ class AutoEmail:
         elif self.is_outlook() and self.sender:
             msg = "Outlook does not support setting the sender address."
             self.logger.error(msg)
-            raise AutoEmailException(msg)
+            raise FluxMailException(msg)
 
     def _handle_recipient(self):
         validated = [validate_email(email) for email in self.recipients]
@@ -292,17 +292,17 @@ class AutoEmail:
 
     def _validate_parameters(self):
         if not self.subject:
-            raise AutoEmailException("Subject is required.")
+            raise FluxMailException("Subject is required.")
         if not isinstance(self.recipients, list) or not self.recipients:
-            raise AutoEmailException("Recipients must be a non-empty list.")
+            raise FluxMailException("Recipients must be a non-empty list.")
         if self.cc and not isinstance(self.cc, list):
-            raise AutoEmailException("CC must be a list.")
+            raise FluxMailException("CC must be a list.")
         if self.bcc and not isinstance(self.bcc, list):
-            raise AutoEmailException("BCC must be a list.")
+            raise FluxMailException("BCC must be a list.")
         if self.input_path and not isinstance(self.input_path, list):
-            raise AutoEmailException("Attachments must be a list.")
+            raise FluxMailException("Attachments must be a list.")
         if self.priority and self.priority not in _PRIORITY_MAP:
-            raise AutoEmailException(
+            raise FluxMailException(
                 f"priority must be one of {list(_PRIORITY_MAP.keys())}, got '{self.priority}'"
             )
 
@@ -347,7 +347,7 @@ class AutoEmail:
         if self.input_path:
             for file_path in self.input_path:
                 if not os.path.isfile(file_path):
-                    raise AutoEmailException(f"Attachment not found: {file_path}")
+                    raise FluxMailException(f"Attachment not found: {file_path}")
                 self._attach_file(file_path)
 
     def _attach_file(self, file_path: str):
@@ -368,7 +368,7 @@ class AutoEmail:
         except Exception as e:
             msg = f"Error reading file '{file}': {e}"
             self.logger.error(msg)
-            raise AutoEmailException(msg)
+            raise FluxMailException(msg)
 
     def display(self) -> str:
         """Displays or returns an email preview.
@@ -380,23 +380,23 @@ class AutoEmail:
 
         Raises
         ------
-        AutoEmailException
+        FluxMailException
             If ``create()`` has not been called or display fails.
         """
         if not self.is_created:
-            raise AutoEmailException("Call create() before display().")
+            raise FluxMailException("Call create() before display().")
         try:
             if self.is_smtp():
                 return f"Email Preview:\n{self.message}"
             elif self.is_outlook():
                 self.message.Display()
                 return "Outlook email displayed successfully."
-        except AutoEmailException:
+        except FluxMailException:
             raise
         except Exception as e:
             msg = f"Display failed: {e}"
             self.logger.error(msg)
-            raise AutoEmailException(msg)
+            raise FluxMailException(msg)
 
     def send(self, dry_run: bool = False) -> str:
         """Sends or previews the email.
@@ -413,11 +413,11 @@ class AutoEmail:
 
         Raises
         ------
-        AutoEmailException
+        FluxMailException
             If ``create()`` has not been called, or on send failure.
         """
         if not self.is_created:
-            raise AutoEmailException("Call create() before send().")
+            raise FluxMailException("Call create() before send().")
         if dry_run:
             return self.display()
 
@@ -434,17 +434,17 @@ class AutoEmail:
                         smtp.send_message(self.message)
                 return "Email sent successfully via SMTP."
             elif self.is_outlook():
-                raise AutoEmailException(
+                raise FluxMailException(
                     "Outlook requires user interaction to send emails and cannot send programmatically."
                 )
-        except AutoEmailException:
+        except FluxMailException:
             raise
         except Exception as e:
             msg = f"Send failed: {e}"
             self.logger.error(msg)
-            raise AutoEmailException(msg)
+            raise FluxMailException(msg)
 
-    def __enter__(self) -> "AutoEmail":
+    def __enter__(self) -> "FluxMail":
         """Open a persistent SMTP connection for reuse across multiple sends."""
         if self.is_smtp():
             self._smtp_conn = smtplib.SMTP(self.host.relay, self.port)
@@ -465,6 +465,6 @@ class AutoEmail:
 
     def __repr__(self) -> str:
         return (
-            f"AutoEmail(object_type={self.object_type}, host={self.host}, "
+            f"FluxMail(object_type={self.object_type}, host={self.host}, "
             f"logger={self.logger}, log_level={self.log_level})"
         )

@@ -7,7 +7,7 @@ Requires **Python 3.8 or later**.
 === "pip (recommended)"
 
     ```bash
-    pip install autoemail
+    pip install fluxmail
     ```
 
 === "From source"
@@ -21,14 +21,14 @@ Requires **Python 3.8 or later**.
 ## Upgrade
 
 ```bash
-pip install --upgrade autoemail
+pip install --upgrade fluxmail
 ```
 
 ## Outlook Support
 
 !!! tip "Outlook on Windows"
     The `pywin32` dependency is installed automatically when running
-    `pip install autoemail` on **Windows**. On Linux and macOS, `pywin32` is
+    `pip install fluxmail` on **Windows**. On Linux and macOS, `pywin32` is
     skipped and only SMTP is available. Outlook itself must be installed and
     open for COM automation to work.
 
@@ -37,6 +37,6 @@ pip install --upgrade autoemail
 Confirm the installation succeeded:
 
 ```bash
-autoemail --version
-# autoemail 1.x.y
+fluxmail --version
+# fluxmail 1.x.y
 ```

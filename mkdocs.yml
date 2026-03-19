@@ -1,14 +1,14 @@
-site_name: AutoEmail
+site_name: FluxMail
 site_description: Send emails from Python or the terminal — any SMTP server, zero config.
-site_url: https://vertex-ai-automations.github.io/autoemail
+site_url: https://vertex-ai-automations.github.io/fluxmail
 site_dir: public
-repo_name: AutoEmail
-repo_url: https://github.com/vertex-ai-automations/autoemail
+repo_name: FluxMail
+repo_url: https://github.com/vertex-ai-automations/fluxmail
 copyright: Copyright &copy; 2024–2026 Vertex AI Automations
 
 theme:
   name: material
-  logo: img/autoemail_192x192.png
+  logo: img/fluxmail_192x192.png
   favicon: img/favicon/favicon.ico
   language: en
   custom_dir: docs/overrides
@@ -82,10 +82,10 @@ nav:
 plugins:
   - search:
       separator: '[\s\u200b\-_,:!=\[\]()"`/]+|\.(?!\d)|&[lg]t;|(?!\b)(?=[A-Z][a-z])'
-  #- git-authors
-  #- git-revision-date-localized:
-  #    enable_creation_date: true
-  #    type: timeago
+  - git-authors
+  - git-revision-date-localized:
+      enable_creation_date: true
+      type: timeago
   - autorefs:
       resolve_closest: true
   - mkdocstrings:
@@ -177,11 +177,11 @@ extra:
   generator: false
   social:
     - icon: fontawesome/brands/github
-      link: https://github.com/vertex-ai-automations/autoemail
-      name: AutoEmail on GitHub
+      link: https://github.com/vertex-ai-automations/fluxmail
+      name: FluxMail on GitHub
     - icon: fontawesome/brands/python
-      link: https://pypi.org/project/autoemail/
-      name: AutoEmail on PyPI
+      link: https://pypi.org/project/fluxmail/
+      name: FluxMail on PyPI
   analytics:
     provider: google
     property: G-XXXXXXXXXX

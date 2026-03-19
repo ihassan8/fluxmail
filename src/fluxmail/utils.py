@@ -4,8 +4,8 @@ from enum import Enum
 from typing import Type, TypeVar, Union
 
 
-class AutoEmailException(Exception):
-    """Custom exception class for AutoEmail errors."""
+class FluxMailException(Exception):
+    """Custom exception class for FluxMail errors."""
 
 
 class EmailObject(Enum):
@@ -93,18 +93,18 @@ def validate_email(item: str) -> str:
 
     Raises
     ------
-    AutoEmailException
+    FluxMailException
         On format validation errors.
     """
     if not item:
-        raise AutoEmailException("No email address provided.")
+        raise FluxMailException("No email address provided.")
 
     email = item.strip().lower().strip(".")
 
     if ".@" in email or "@" not in email or "@." in email:
-        raise AutoEmailException(f"Invalid email '{email}': format issue.")
+        raise FluxMailException(f"Invalid email '{email}': format issue.")
 
     if not EMAIL_REGEX.match(email):
-        raise AutoEmailException(f"Invalid email '{email}': does not match expected pattern.")
+        raise FluxMailException(f"Invalid email '{email}': does not match expected pattern.")
 
     return email

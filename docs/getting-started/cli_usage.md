@@ -1,7 +1,7 @@
 # CLI Usage
 
-Send emails directly from the terminal with the `autoemail` command.
-Run `autoemail --help` for full usage with formatted output.
+Send emails directly from the terminal with the `fluxmail` command.
+Run `fluxmail --help` for full usage with formatted output.
 
 ## Flags
 
@@ -21,8 +21,8 @@ Run `autoemail --help` for full usage with formatted output.
 | `--html` / `--no-html` | No | `--no-html` | Treat body as HTML |
 | `--dry-run` | No | off | Preview the email without sending |
 | `--port` | No | `25` | SMTP port. Use `587` for STARTTLS. |
-| `--username` | No | `$AUTOEMAIL_USERNAME` | SMTP login username. When this is a valid email it also sets the default sender. |
-| `--password` | No | `$AUTOEMAIL_PASSWORD` | SMTP login password (hidden in prompts) |
+| `--username` | No | `$FLUXMAIL_USERNAME` | SMTP login username. When this is a valid email it also sets the default sender. |
+| `--password` | No | `$FLUXMAIL_PASSWORD` | SMTP login password (hidden in prompts) |
 | `--tls` / `--no-tls` | No | `--no-tls` | Enable STARTTLS |
 | `--version` | No | — | Print version and exit |
 
@@ -33,10 +33,10 @@ Run `autoemail --help` for full usage with formatted output.
 === "Gmail with TLS"
 
     ```bash
-    export AUTOEMAIL_USERNAME=me@gmail.com
-    export AUTOEMAIL_PASSWORD=secret
+    export FLUXMAIL_USERNAME=me@gmail.com
+    export FLUXMAIL_PASSWORD=secret
 
-    autoemail --type smtp --host smtp.gmail.com --port 587 --tls \
+    fluxmail --type smtp --host smtp.gmail.com --port 587 --tls \
       --subject "Hello" \
       --recipients friend@example.com \
       --body "Hi from the CLI!"
@@ -45,10 +45,10 @@ Run `autoemail --help` for full usage with formatted output.
 === "SendGrid (API key auth)"
 
     ```bash
-    export AUTOEMAIL_USERNAME=apikey
-    export AUTOEMAIL_PASSWORD=SG.xxxx
+    export FLUXMAIL_USERNAME=apikey
+    export FLUXMAIL_PASSWORD=SG.xxxx
 
-    autoemail --type smtp --host smtp.sendgrid.net --port 587 --tls \
+    fluxmail --type smtp --host smtp.sendgrid.net --port 587 --tls \
       --subject "Notification" \
       --recipients user@example.com \
       --sender noreply@myapp.com \
@@ -58,7 +58,7 @@ Run `autoemail --help` for full usage with formatted output.
 === "Multiple recipients + CC"
 
     ```bash
-    autoemail --type smtp --host smtp.gmail.com --port 587 --tls \
+    fluxmail --type smtp --host smtp.gmail.com --port 587 --tls \
       --subject "Q1 Summary" \
       --recipients alice@example.com \
       --recipients bob@example.com \
@@ -71,7 +71,7 @@ Run `autoemail --help` for full usage with formatted output.
 === "Body from file"
 
     ```bash
-    autoemail --type smtp --host smtp.gmail.com --port 587 --tls \
+    fluxmail --type smtp --host smtp.gmail.com --port 587 --tls \
       --subject "Report" \
       --recipients user@example.com \
       --body-file /path/to/report-body.html \
@@ -82,7 +82,7 @@ Run `autoemail --help` for full usage with formatted output.
 === "Dry-run preview"
 
     ```bash
-    autoemail --type smtp --host smtp.gmail.com --port 587 --tls \
+    fluxmail --type smtp --host smtp.gmail.com --port 587 --tls \
       --subject "Test" \
       --recipients user@example.com \
       --body "Hello" \
@@ -91,6 +91,6 @@ Run `autoemail --help` for full usage with formatted output.
     ```
 
 !!! warning "Credentials in shell history"
-    Prefer `AUTOEMAIL_USERNAME` / `AUTOEMAIL_PASSWORD` environment variables over
+    Prefer `FLUXMAIL_USERNAME` / `FLUXMAIL_PASSWORD` environment variables over
     the `--username` / `--password` flags. Inline flags appear in shell history
     and `ps` output, making them unsuitable for shared or production systems.

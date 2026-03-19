@@ -1,7 +1,7 @@
 import pytest
 from typer.testing import CliRunner
-from autoemail.autoemail_cli import app
-from autoemail.testing import mock_smtp
+from fluxmail.fluxmail_cli import app
+from fluxmail.testing import mock_smtp
 
 runner = CliRunner()
 
@@ -18,7 +18,7 @@ BASE = [
 def test_version():
     result = runner.invoke(app, ["--version"])
     assert result.exit_code == 0
-    assert "autoemail" in result.output
+    assert "fluxmail" in result.output
 
 
 def test_help():

@@ -1,7 +1,7 @@
 import pytest
 
-from autoemail import AutoEmailException, EmailInstance, EmailObject
-from autoemail.utils import str_to_enum, validate_email
+from fluxmail import FluxMailException, EmailInstance, EmailObject
+from fluxmail.utils import str_to_enum, validate_email
 
 
 # ── EmailInstance ─────────────────────────────────────────────────────────────
@@ -57,19 +57,19 @@ class TestValidateEmail:
         assert validate_email("user@example.com.") == "user@example.com"
 
     def test_missing_at_raises(self):
-        with pytest.raises(AutoEmailException):
+        with pytest.raises(FluxMailException):
             validate_email("notanemail")
 
     def test_dot_before_at_raises(self):
-        with pytest.raises(AutoEmailException):
+        with pytest.raises(FluxMailException):
             validate_email(".@example.com")
 
     def test_at_before_dot_raises(self):
-        with pytest.raises(AutoEmailException):
+        with pytest.raises(FluxMailException):
             validate_email("user@.example.com")
 
     def test_empty_string_raises(self):
-        with pytest.raises(AutoEmailException):
+        with pytest.raises(FluxMailException):
             validate_email("")
 
     def test_any_domain_accepted(self):

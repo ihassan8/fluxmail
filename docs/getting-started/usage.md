@@ -5,9 +5,9 @@
 Pass the relay hostname as a string and set `username` — it doubles as the `From` address:
 
 ```python
-from autoemail import AutoEmail
+from fluxmail import FluxMail
 
-email = AutoEmail(
+email = FluxMail(
     object_type="smtp",
     host="smtp.gmail.com",
     port=587,
@@ -30,9 +30,9 @@ When your SMTP auth username is not the address you want in `From` (e.g. SendGri
 pass `sender=` explicitly:
 
 ```python
-from autoemail import AutoEmail
+from fluxmail import FluxMail
 
-email = AutoEmail(
+email = FluxMail(
     object_type="smtp",
     host="smtp.sendgrid.net",
     port=587,
@@ -53,10 +53,10 @@ email.create(
 For reusable relay configurations, use `EmailInstance`:
 
 ```python
-from autoemail import AutoEmail, EmailInstance
+from fluxmail import FluxMail, EmailInstance
 
 relay = EmailInstance(relay="smtp.myrelay.net", domain="mycompany.com")
-email = AutoEmail(object_type="smtp", host=relay, username="me@mycompany.com")
+email = FluxMail(object_type="smtp", host=relay, username="me@mycompany.com")
 email.create(subject="Hi", recipients=["user@mycompany.com"], body="Hello").send()
 ```
 
@@ -65,7 +65,7 @@ email.create(subject="Hi", recipients=["user@mycompany.com"], body="Hello").send
 `create()` returns `self`, enabling a single-expression send:
 
 ```python
-AutoEmail(object_type="smtp", host="smtp.gmail.com", port=587, use_tls=True,
+FluxMail(object_type="smtp", host="smtp.gmail.com", port=587, use_tls=True,
           username="me@gmail.com", password="secret").create(
     subject="Quick Note",
     recipients=["friend@example.com"],
@@ -76,9 +76,9 @@ AutoEmail(object_type="smtp", host="smtp.gmail.com", port=587, use_tls=True,
 ## Full Options
 
 ```python
-from autoemail import AutoEmail
+from fluxmail import FluxMail
 
-email = AutoEmail(object_type="smtp", host="smtp.gmail.com", port=587, use_tls=True,
+email = FluxMail(object_type="smtp", host="smtp.gmail.com", port=587, use_tls=True,
                   username="me@gmail.com", password="secret")
 email.create(
     subject="Monthly Report",
@@ -143,11 +143,11 @@ email.create(
 
 ## Connection Reuse
 
-Use `AutoEmail` as a context manager to hold one SMTP connection open across
+Use `FluxMail` as a context manager to hold one SMTP connection open across
 multiple sends — useful for bulk operations:
 
 ```python
-with AutoEmail(object_type="smtp", host="smtp.gmail.com", port=587, use_tls=True,
+with FluxMail(object_type="smtp", host="smtp.gmail.com", port=587, use_tls=True,
                username="me@gmail.com", password="secret") as mailer:
     for recipient in recipients:
         mailer.create(subject="Hi", recipients=[recipient], body="Hello").send()
@@ -157,12 +157,12 @@ with AutoEmail(object_type="smtp", host="smtp.gmail.com", port=587, use_tls=True
 
 !!! warning "Windows only"
     Outlook requires the desktop app to be installed and running on Windows.
-    Using `EmailObject.OUTLOOK` on Linux or macOS raises `AutoEmailException`.
+    Using `EmailObject.OUTLOOK` on Linux or macOS raises `FluxMailException`.
 
 ```python
-from autoemail import AutoEmail, EmailInstance, EmailObject
+from fluxmail import FluxMail, EmailInstance, EmailObject
 
-email = AutoEmail(object_type=EmailObject.OUTLOOK, host=EmailInstance(relay=""))
+email = FluxMail(object_type=EmailObject.OUTLOOK, host=EmailInstance(relay=""))
 email.create(
     subject="Project Update",
     recipients=["user@example.com"],
@@ -176,12 +176,12 @@ email.display()
 
 !!! note "Sending"
     Outlook cannot send programmatically. Calling `send()` on an Outlook
-    instance raises `AutoEmailException`. Use `display()` to open the compose
+    instance raises `FluxMailException`. Use `display()` to open the compose
     window and let the user confirm the send.
 
 !!! note "Sender"
     Outlook controls the sender address. Passing `sender=` raises
-    `AutoEmailException`.
+    `FluxMailException`.
 
 !!! note "Reply-To"
     SMTP only. Outlook's COM interface does not expose a Reply-To field.
@@ -193,18 +193,18 @@ email.display()
 
 !!! tip
     Chain `.send()` directly onto `.create()` to keep script logic concise — both
-    raise `AutoEmailException` on failure, so a single `try/except` covers both.
+    raise `FluxMailException` on failure, so a single `try/except` covers both.
 
 ```python
-from autoemail import AutoEmail, AutoEmailException
+from fluxmail import FluxMail, FluxMailException
 
 try:
-    AutoEmail(object_type="smtp", host="smtp.gmail.com", port=587, use_tls=True,
+    FluxMail(object_type="smtp", host="smtp.gmail.com", port=587, use_tls=True,
               username="me@gmail.com", password="secret").create(
         subject="Test",
         recipients=["user@example.com"],
         body="Hello",
     ).send()
-except AutoEmailException as e:
+except FluxMailException as e:
     print(f"Email failed: {e}")
 ```

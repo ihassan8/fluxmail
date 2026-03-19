@@ -4,9 +4,9 @@ hide:
 ---
 
 <div class="hero" markdown>
-<img src="img/autoemail_192x192.png" alt="AutoEmail">
+<img src="img/autoemail_192x192.png" alt="FluxMail">
 
-# AutoEmail
+# FluxMail
 
 **Send emails from the terminal or Python — SMTP and Outlook in one library.**
 
@@ -19,10 +19,10 @@ hide:
 
 <div align="center" markdown>
 
-[![PyPI](https://img.shields.io/pypi/v/autoemail?color=2563eb&logo=pypi&logoColor=white)](https://pypi.org/project/autoemail/)
-[![Python](https://img.shields.io/pypi/pyversions/autoemail?color=2563eb&logo=python&logoColor=white)](https://pypi.org/project/autoemail/)
+[![PyPI](https://img.shields.io/pypi/v/fluxmail?color=2563eb&logo=pypi&logoColor=white)](https://pypi.org/project/fluxmail/)
+[![Python](https://img.shields.io/pypi/pyversions/fluxmail?color=2563eb&logo=python&logoColor=white)](https://pypi.org/project/fluxmail/)
 [![License](https://img.shields.io/badge/license-MIT-2563eb.svg)](https://github.com/vertex-ai-automations/autoemail/blob/main/LICENSE.txt)
-[![Downloads](https://img.shields.io/pypi/dm/autoemail?color=2563eb)](https://pypi.org/project/autoemail/)
+[![Downloads](https://img.shields.io/pypi/dm/fluxmail?color=2563eb)](https://pypi.org/project/fluxmail/)
 [![CI](https://img.shields.io/github/actions/workflow/status/vertex-ai-automations/autoemail/release.yml?branch=main&label=CI&logo=github)](https://github.com/vertex-ai-automations/autoemail/actions)
 
 </div>
@@ -52,7 +52,7 @@ One-line sends from the terminal. All options as flags; credentials safely via e
 <div class="feature-item" markdown>
 **:material-language-python: Python API**
 
-Chainable API: `AutoEmail(...).create(...).send()`. Plugs into any Python script or automation pipeline.
+Chainable API: `FluxMail(...).create(...).send()`. Plugs into any Python script or automation pipeline.
 </div>
 
 </div>
@@ -64,9 +64,9 @@ Chainable API: `AutoEmail(...).create(...).send()`. Plugs into any Python script
 === "Python"
 
     ```python
-    from autoemail import AutoEmail
+    from fluxmail import FluxMail
 
-    AutoEmail(
+    FluxMail(
         object_type="smtp",
         host="smtp.gmail.com",
         port=587,
@@ -83,10 +83,10 @@ Chainable API: `AutoEmail(...).create(...).send()`. Plugs into any Python script
 === "CLI"
 
     ```bash
-    pip install autoemail
+    pip install fluxmail
 
-    AUTOEMAIL_USERNAME=me@gmail.com AUTOEMAIL_PASSWORD=secret \
-      autoemail --type smtp --host smtp.gmail.com --port 587 --tls \
+    FLUXMAIL_USERNAME=me@gmail.com FLUXMAIL_PASSWORD=secret \
+      fluxmail --type smtp --host smtp.gmail.com --port 587 --tls \
         --subject "Hello" \
         --recipients friend@example.com \
         --body "Hi there!"

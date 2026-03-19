@@ -1,6 +1,6 @@
 import pytest
-from autoemail import AutoEmail, AutoEmailException, EmailInstance, EmailObject
-from autoemail.testing import mock_smtp
+from fluxmail import FluxMail, FluxMailException, EmailInstance, EmailObject
+from fluxmail.testing import mock_smtp
 
 HOST = EmailInstance(relay="smtp.example.com")
 
@@ -9,46 +9,46 @@ HOST = EmailInstance(relay="smtp.example.com")
 
 class TestInit:
     def test_smtp_object_type(self):
-        e = AutoEmail(object_type=EmailObject.SMTP, host=HOST)
+        e = FluxMail(object_type=EmailObject.SMTP, host=HOST)
         assert e.is_smtp()
         assert not e.is_outlook()
 
     def test_string_type_accepted(self):
-        e = AutoEmail(object_type="smtp", host=HOST)
+        e = FluxMail(object_type="smtp", host=HOST)
         assert e.is_smtp()
 
     def test_emailinstance_host(self):
-        e = AutoEmail(object_type="smtp", host=HOST)
+        e = FluxMail(object_type="smtp", host=HOST)
         assert e.host == HOST
 
     def test_bare_string_host(self):
-        e = AutoEmail(object_type="smtp", host="smtp.example.com")
+        e = FluxMail(object_type="smtp", host="smtp.example.com")
         assert e.host.relay == "smtp.example.com"
         assert e.host.domain == ""
 
     def test_relay_colon_domain_string_host(self):
-        e = AutoEmail(object_type="smtp", host="smtp.example.com:example.com")
+        e = FluxMail(object_type="smtp", host="smtp.example.com:example.com")
         assert e.host.relay == "smtp.example.com"
         assert e.host.domain == "example.com"
 
     def test_invalid_type_raises(self):
         with pytest.raises(ValueError):
-            AutoEmail(object_type="fax", host=HOST)
+            FluxMail(object_type="fax", host=HOST)
 
     def test_invalid_host_type_raises(self):
         with pytest.raises(TypeError):
-            AutoEmail(object_type="smtp", host=12345)
+            FluxMail(object_type="smtp", host=12345)
 
     def test_invalid_logger_raises(self):
-        with pytest.raises(AutoEmailException):
-            AutoEmail(object_type="smtp", host=HOST, logger="not-a-logger")
+        with pytest.raises(FluxMailException):
+            FluxMail(object_type="smtp", host=HOST, logger="not-a-logger")
 
     def test_default_port(self):
-        e = AutoEmail(object_type="smtp", host=HOST)
+        e = FluxMail(object_type="smtp", host=HOST)
         assert e.port == 25
 
     def test_custom_port(self):
-        e = AutoEmail(object_type="smtp", host=HOST, port=587)
+        e = FluxMail(object_type="smtp", host=HOST, port=587)
         assert e.port == 587
 
 
@@ -64,23 +64,23 @@ class TestCreate:
         assert smtp_email.is_created
 
     def test_empty_subject_raises(self, smtp_email):
-        with pytest.raises(AutoEmailException):
+        with pytest.raises(FluxMailException):
             smtp_email.create(subject="", recipients=["a@b.com"], body="Hello")
 
     def test_empty_recipients_raises(self, smtp_email):
-        with pytest.raises(AutoEmailException):
+        with pytest.raises(FluxMailException):
             smtp_email.create(subject="Hi", recipients=[], body="Hello")
 
     def test_string_recipients_raises(self, smtp_email):
-        with pytest.raises(AutoEmailException):
+        with pytest.raises(FluxMailException):
             smtp_email.create(subject="Hi", recipients="a@b.com", body="Hello")
 
     def test_string_cc_raises(self, smtp_email):
-        with pytest.raises(AutoEmailException):
+        with pytest.raises(FluxMailException):
             smtp_email.create(subject="Hi", recipients=["a@b.com"], body="Hi", cc="a@b.com")
 
     def test_string_bcc_raises(self, smtp_email):
-        with pytest.raises(AutoEmailException):
+        with pytest.raises(FluxMailException):
             smtp_email.create(subject="Hi", recipients=["a@b.com"], body="Hi", bcc="a@b.com")
 
     def test_subject_set_on_message(self, smtp_email):
@@ -109,24 +109,24 @@ class TestCreate:
     # ── sender logic ──────────────────────────────────────────────────────────
 
     def test_sender_defaults_to_username_when_email(self):
-        e = AutoEmail(object_type="smtp", host=HOST, username="me@example.com")
+        e = FluxMail(object_type="smtp", host=HOST, username="me@example.com")
         e.create(subject="Hi", recipients=["a@b.com"], body="Hi")
         assert e.message["From"] == "me@example.com"
 
     def test_explicit_sender_used_over_username(self):
-        e = AutoEmail(object_type="smtp", host=HOST, username="auth@example.com")
+        e = FluxMail(object_type="smtp", host=HOST, username="auth@example.com")
         e.create(subject="Hi", recipients=["a@b.com"], body="Hi",
                  sender="noreply@example.com")
         assert e.message["From"] == "noreply@example.com"
 
     def test_sender_raises_when_username_not_email(self):
-        e = AutoEmail(object_type="smtp", host=HOST, username="apikey")
-        with pytest.raises(AutoEmailException, match="sender is required"):
+        e = FluxMail(object_type="smtp", host=HOST, username="apikey")
+        with pytest.raises(FluxMailException, match="sender is required"):
             e.create(subject="Hi", recipients=["a@b.com"], body="Hi")
 
     def test_sender_raises_when_no_username(self):
-        e = AutoEmail(object_type="smtp", host=HOST)
-        with pytest.raises(AutoEmailException, match="sender is required"):
+        e = FluxMail(object_type="smtp", host=HOST)
+        with pytest.raises(FluxMailException, match="sender is required"):
             e.create(subject="Hi", recipients=["a@b.com"], body="Hi")
 
     def test_explicit_sender_set_on_message(self, smtp_email):
@@ -144,7 +144,7 @@ class TestCreate:
 
 class TestSend:
     def test_send_before_create_raises(self, smtp_email):
-        with pytest.raises(AutoEmailException, match=r"create\(\)"):
+        with pytest.raises(FluxMailException, match=r"create\(\)"):
             smtp_email.send()
 
     def test_dry_run_returns_preview_string(self, smtp_email):
@@ -161,7 +161,7 @@ class TestSend:
 
     def test_send_with_tls_calls_starttls(self):
         with mock_smtp() as smtp:
-            e = AutoEmail(object_type="smtp", host=HOST, use_tls=True,
+            e = FluxMail(object_type="smtp", host=HOST, use_tls=True,
                           username="u@example.com")
             e.create(subject="Hi", recipients=["a@b.com"], body="Hello")
             e.send()
@@ -169,7 +169,7 @@ class TestSend:
 
     def test_send_without_tls_does_not_starttls(self):
         with mock_smtp() as smtp:
-            e = AutoEmail(object_type="smtp", host=HOST, use_tls=False,
+            e = FluxMail(object_type="smtp", host=HOST, use_tls=False,
                           username="u@example.com")
             e.create(subject="Hi", recipients=["a@b.com"], body="Hello")
             e.send()
@@ -177,7 +177,7 @@ class TestSend:
 
     def test_send_with_credentials_calls_login(self):
         with mock_smtp() as smtp:
-            e = AutoEmail(object_type="smtp", host=HOST,
+            e = FluxMail(object_type="smtp", host=HOST,
                           username="u@example.com", password="p")
             e.create(subject="Hi", recipients=["a@b.com"], body="Hello")
             e.send()
@@ -185,16 +185,16 @@ class TestSend:
 
     def test_send_without_credentials_skips_login(self):
         with mock_smtp() as smtp:
-            e = AutoEmail(object_type="smtp", host=HOST, username="u@example.com")
+            e = FluxMail(object_type="smtp", host=HOST, username="u@example.com")
             e.create(subject="Hi", recipients=["a@b.com"], body="Hello")
             e.send()
         smtp.login.assert_not_called()
 
-    def test_smtp_exception_raises_autoemail_exception(self, smtp_email):
+    def test_smtp_exception_raises_fluxmail_exception(self, smtp_email):
         with mock_smtp() as smtp:
             smtp.send_message.side_effect = ConnectionRefusedError("refused")
             smtp_email.create(subject="Hi", recipients=["a@b.com"], body="Hello")
-            with pytest.raises(AutoEmailException, match="Send failed"):
+            with pytest.raises(FluxMailException, match="Send failed"):
                 smtp_email.send()
 
 
@@ -270,7 +270,7 @@ class TestPriorityHeaders:
         assert smtp_email.message["X-Priority"] == "5"
 
     def test_invalid_priority_raises(self, smtp_email):
-        with pytest.raises(AutoEmailException, match="priority"):
+        with pytest.raises(FluxMailException, match="priority"):
             smtp_email.create(
                 subject="Hi", recipients=["a@b.com"], body="Hi", priority="urgent"
             )
@@ -288,8 +288,8 @@ class TestContextManager:
         mock_conn = MagicMock()
         mock_cls = MagicMock(return_value=mock_conn)
 
-        with patch("autoemail.autoemail.smtplib.SMTP", mock_cls):
-            with AutoEmail(object_type="smtp", host=HOST,
+        with patch("fluxmail.fluxmail.smtplib.SMTP", mock_cls):
+            with FluxMail(object_type="smtp", host=HOST,
                            username="u@example.com") as mailer:
                 mailer.create(subject="A", recipients=["a@b.com"], body="1").send()
                 mailer.create(subject="B", recipients=["a@b.com"], body="2").send()
@@ -302,8 +302,8 @@ class TestContextManager:
         mock_conn = MagicMock()
         mock_cls = MagicMock(return_value=mock_conn)
 
-        with patch("autoemail.autoemail.smtplib.SMTP", mock_cls):
-            with AutoEmail(object_type="smtp", host=HOST,
+        with patch("fluxmail.fluxmail.smtplib.SMTP", mock_cls):
+            with FluxMail(object_type="smtp", host=HOST,
                            username="u@example.com") as mailer:
                 mailer.create(subject="A", recipients=["a@b.com"], body="1").send()
 
@@ -311,7 +311,7 @@ class TestContextManager:
 
     def test_send_outside_context_still_works(self):
         with mock_smtp() as smtp:
-            e = AutoEmail(object_type="smtp", host=HOST, username="u@example.com")
+            e = FluxMail(object_type="smtp", host=HOST, username="u@example.com")
             e.create(subject="Hi", recipients=["a@b.com"], body="Hello").send()
         smtp.send_message.assert_called_once()
 
@@ -320,7 +320,7 @@ class TestContextManager:
 
 class TestDisplay:
     def test_display_before_create_raises(self, smtp_email):
-        with pytest.raises(AutoEmailException, match=r"create\(\)"):
+        with pytest.raises(FluxMailException, match=r"create\(\)"):
             smtp_email.display()
 
     def test_display_returns_string(self, smtp_email):
