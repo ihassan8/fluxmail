@@ -1,0 +1,116 @@
+# ==============================================================================
+# 🚢 Release Workflow — Project Caller
+# ==============================================================================
+# Save this file in YOUR PROJECT repo at:
+#   .github/workflows/release.yml
+#
+# TRIGGERS & JOB MATRIX:
+#
+#   Event            │ docs │ publish
+#   ─────────────────┼──────┼────────
+#   Push to main     │  ✅  │   ⛔
+#   Push tag X.X.X   │  ⛔  │   ✅
+#   Manual dispatch  │  ✅  │   ⛔
+#
+# PUBLISH TARGET FLAG (controls where the package is published):
+#
+#   publish-target: 'both'     → TestPyPI first, then PyPI  ← default
+#   publish-target: 'pypi'     → PyPI only
+#   publish-target: 'testpypi' → TestPyPI only
+#
+# RELEASE FLOW:
+#   1. Merge PRs to main as normal — docs deploy automatically
+#   2. When ready to release, push a bare SemVer tag:
+#        git tag 1.2.1
+#        git push origin 1.2.1
+#   3. The publish job runs: validate → test → build → testpypi → pypi
+#
+# SECRETS REQUIRED (Settings → Secrets and variables → Actions):
+#   TEST_PYPI_API_TOKEN  — from test.pypi.org/manage/account/token/
+#   PYPI_API_TOKEN       — from pypi.org (only if not using Trusted Publishing)
+#
+# PRE-REQUISITES (once per project):
+#
+#   1. Enable GitHub Pages:
+#      Settings → Pages → Source → GitHub Actions
+#
+#   2. Create GitHub Environments:
+#      Settings → Environments → New environment
+#        - "pypi"      (real PyPI — add Required reviewers for safety)
+#        - "test-pypi" (TestPyPI sandbox — no reviewers needed)
+#
+#   3. Register Trusted Publisher on pypi.org:
+#      pypi.org → your project → Publishing → Add publisher
+#        owner    = vertex-ai-automations
+#        repo     = THIS-REPO-NAME
+#        workflow = release.yml
+#        env      = pypi
+#
+#   4. Create docs/requirements.txt:
+#        mkdocs-material==9.5.18
+#        mkdocstrings[python]==0.24.3
+#
+# CUSTOMISE PER PROJECT:
+#   python-version   — match your project's Python version
+#   test-command     — your test runner command
+#   publish-target   — 'both' | 'pypi' | 'testpypi'
+#   src-layout       — true if you use a src/ directory layout
+#   mkdocs-strict    — false to allow doc build warnings
+# ==============================================================================
+
+name: 🚢 Release
+
+on:
+  push:
+    branches:
+      - main          # Docs deploy only
+    tags:
+      - "*.*.*"       # Publish only — bare SemVer e.g. 1.2.1
+  workflow_dispatch:  # Manual trigger — docs only
+
+jobs:
+
+  # ============================================================
+  # 📚 Deploy MkDocs to GitHub Pages
+  # Runs on: push to main, manual dispatch
+  # ============================================================
+  docs:
+    name: 📚 Deploy Docs
+    uses: vertex-ai-automations/shared-workflows/.github/workflows/publish-mkdocs.yml@main
+    permissions:
+      contents: read
+      pages: write
+      id-token: write
+    with:
+      python-version: "3.11"
+      docs-requirements: "docs/requirements.txt"
+      src-layout: true       # ← set false if not using src/ layout
+      mkdocs-strict: true    # ← set false to allow doc build warnings
+    secrets: inherit
+
+  # ============================================================
+  # 📦 Build and Publish Package
+  # Runs on: tag push only (tag guard is enforced inside the
+  # reusable workflow — non-tag pushes skip cleanly)
+  #
+  # publish-target controls which registries receive the package:
+  #   'both'     → TestPyPI first, then PyPI (recommended)
+  #   'pypi'     → PyPI only
+  #   'testpypi' → TestPyPI only
+  #
+  # No permissions block needed — declared inside python-publish.yml
+  # ============================================================
+  publish:
+    name: 📦 Publish Package
+    uses: vertex-ai-automations/shared-workflows/.github/workflows/python-publish.yml@main
+    permissions:
+      contents: read
+      id-token: write
+    with:
+      python-version: "3.11"
+      run-tests: true
+      test-command: "pytest tests/ -v --tb=short"
+      publish-target: "pypi"          # 'both' | 'pypi' | 'testpypi'
+      use-trusted-publishing: false    # set false to use PYPI_API_TOKEN instead
+    secrets: inherit
+
