@@ -2,7 +2,9 @@ import logging
 import mimetypes
 import os
 import platform
+import ssl
 from email.message import EmailMessage
+from email.utils import make_msgid
 from typing import List, Optional, Tuple, Union
 
 # Windows-only dependency for Outlook
@@ -12,6 +14,7 @@ else:
     win32 = None
 
 from pylogshield import get_logger
+from tenacity import Retrying, stop_after_attempt, wait_fixed
 
 from ._transport import _SMTPTransport
 from .utils import (
@@ -55,10 +58,14 @@ class FluxMail:
         "username",
         "password",
         "use_tls",
+        "use_ssl",
+        "ssl_context",
+        "timeout",
+        "max_retries",
+        "retry_delay",
         "in_reply_to",
         "references",
         "priority",
-        "_smtp_conn",
         "_transport",
     )
 
@@ -72,6 +79,11 @@ class FluxMail:
         username: Optional[str] = None,
         password: Optional[str] = None,
         use_tls: bool = False,
+        use_ssl: bool = False,
+        ssl_context: Optional[ssl.SSLContext] = None,
+        timeout: int = 30,
+        max_retries: int = 0,
+        retry_delay: float = 1.0,
     ):
         """Initializes the FluxMail class.
 
@@ -98,6 +110,17 @@ class FluxMail:
             SMTP login password.
         use_tls : bool, optional
             Enable STARTTLS for the SMTP connection. Default: ``False``.
+        use_ssl : bool, optional
+            Enable implicit TLS (SSL) for the SMTP connection (port 465). Default: ``False``.
+            Mutually exclusive with ``use_tls``.
+        ssl_context : ssl.SSLContext, optional
+            Custom SSL context for TLS/SSL connections. Default: ``None``.
+        timeout : int, optional
+            Connection timeout in seconds. Default: ``30``.
+        max_retries : int, optional
+            Number of retry attempts on send failure. ``0`` disables retries. Default: ``0``.
+        retry_delay : float, optional
+            Seconds to wait between retry attempts. Default: ``1.0``.
 
         Raises
         ------
@@ -106,11 +129,23 @@ class FluxMail:
         TypeError
             If ``host`` is not a string or ``EmailInstance``.
         """
+        if use_ssl and use_tls:
+            raise FluxMailException(
+                "use_ssl and use_tls are mutually exclusive — use use_ssl for port 465 "
+                "implicit TLS, or use_tls for port 587 STARTTLS.",
+                code="invalid_config",
+            )
+
         self.object_type = str_to_enum(EmailObject, object_type)
         self.port = port
         self.username = username
         self.password = password
         self.use_tls = use_tls
+        self.use_ssl = use_ssl
+        self.ssl_context = ssl_context
+        self.timeout = timeout
+        self.max_retries = max_retries
+        self.retry_delay = retry_delay
 
         if isinstance(host, EmailInstance):
             self.host = host
@@ -128,7 +163,8 @@ class FluxMail:
         if logger and not isinstance(logger, logging.Logger):
             raise FluxMailException(
                 "logger must be an instance of logging.Logger. "
-                "Use get_logger() from pylogshield or Python's standard logging module."
+                "Use get_logger() from pylogshield or Python's standard logging module.",
+                code="invalid_config",
             )
 
         self.logger = logger or get_logger("fluxmail", log_level=log_level)
@@ -139,25 +175,28 @@ class FluxMail:
         self.in_reply_to = None
         self.references = None
         self.priority = None
-        self._smtp_conn = None
-        self._transport = _SMTPTransport(
-            relay=self.host.relay,
-            port=self.port,
-            use_ssl=False,
-            use_tls=self.use_tls,
-            ssl_context=None,
-            timeout=10,
-            username=self.username,
-            password=self.password,
-        )
 
         self.logger.debug("Initializing FluxMail instance...")
 
         if self.is_smtp():
             self.message = EmailMessage()
+            self._transport = _SMTPTransport(
+                relay=self.host.relay,
+                port=self.port,
+                use_ssl=use_ssl,
+                use_tls=use_tls,
+                ssl_context=ssl_context,
+                timeout=timeout,
+                username=username,
+                password=password,
+            )
         elif self.is_outlook():
+            self._transport = None
             if win32 is None:
-                raise FluxMailException("Outlook is only supported on Windows OS.")
+                raise FluxMailException(
+                    "Outlook is only supported on Windows OS.",
+                    code="invalid_config",
+                )
             ol_app = win32.Dispatch("outlook.application")
             self.message = ol_app.CreateItem(0)
 
@@ -166,6 +205,10 @@ class FluxMail:
 
     def is_outlook(self) -> bool:
         return self.object_type == EmailObject.OUTLOOK
+
+    def _handle_message_id(self) -> None:
+        if self.is_smtp():
+            self.message["Message-ID"] = make_msgid()
 
     def create(
         self,
@@ -241,6 +284,7 @@ class FluxMail:
         self.priority = priority
 
         self._validate_parameters()
+        self._handle_message_id()
         self._handle_sender()
         self._handle_recipient()
         self._handle_cc()
@@ -262,14 +306,15 @@ class FluxMail:
             else:
                 raise FluxMailException(
                     "sender is required. Pass sender= explicitly, or set username= "
-                    "to a valid email address so it can be used as the From address."
+                    "to a valid email address so it can be used as the From address.",
+                    code="sender_required",
                 )
             self.message["From"] = self.sender
 
         elif self.is_outlook() and self.sender:
             msg = "Outlook does not support setting the sender address."
             self.logger.error(msg)
-            raise FluxMailException(msg)
+            raise FluxMailException(msg, code="outlook_no_sender")
 
     def _handle_recipient(self):
         validated = [validate_email(email) for email in self.recipients]
@@ -303,18 +348,19 @@ class FluxMail:
 
     def _validate_parameters(self):
         if not self.subject:
-            raise FluxMailException("Subject is required.")
+            raise FluxMailException("Subject is required.", code="invalid_params")
         if not isinstance(self.recipients, list) or not self.recipients:
-            raise FluxMailException("Recipients must be a non-empty list.")
+            raise FluxMailException("Recipients must be a non-empty list.", code="invalid_params")
         if self.cc and not isinstance(self.cc, list):
-            raise FluxMailException("CC must be a list.")
+            raise FluxMailException("CC must be a list.", code="invalid_params")
         if self.bcc and not isinstance(self.bcc, list):
-            raise FluxMailException("BCC must be a list.")
+            raise FluxMailException("BCC must be a list.", code="invalid_params")
         if self.input_path and not isinstance(self.input_path, list):
-            raise FluxMailException("Attachments must be a list.")
+            raise FluxMailException("Attachments must be a list.", code="invalid_params")
         if self.priority and self.priority not in _PRIORITY_MAP:
             raise FluxMailException(
-                f"priority must be one of {list(_PRIORITY_MAP.keys())}, got '{self.priority}'"
+                f"priority must be one of {list(_PRIORITY_MAP.keys())}, got '{self.priority}'",
+                code="invalid_priority",
             )
 
         if self.is_smtp():
@@ -358,7 +404,10 @@ class FluxMail:
         if self.input_path:
             for file_path in self.input_path:
                 if not os.path.isfile(file_path):
-                    raise FluxMailException(f"Attachment not found: {file_path}")
+                    raise FluxMailException(
+                        f"Attachment not found: {file_path}",
+                        code="attachment_not_found",
+                    )
                 self._attach_file(file_path)
 
     def _attach_file(self, file_path: str):
@@ -379,7 +428,7 @@ class FluxMail:
         except Exception as e:
             msg = f"Error reading file '{file}': {e}"
             self.logger.error(msg)
-            raise FluxMailException(msg) from e
+            raise FluxMailException(msg, code="read_error") from e
 
     def display(self) -> str:
         """Displays or returns an email preview.
@@ -395,7 +444,7 @@ class FluxMail:
             If ``create()`` has not been called or display fails.
         """
         if not self.is_created:
-            raise FluxMailException("Call create() before display().")
+            raise FluxMailException("Call create() before display().", code="not_created")
         try:
             if self.is_smtp():
                 return f"Email Preview:\n{self.message}"
@@ -407,7 +456,7 @@ class FluxMail:
         except Exception as e:
             msg = f"Display failed: {e}"
             self.logger.error(msg)
-            raise FluxMailException(msg) from e
+            raise FluxMailException(msg, code="display_failed") from e
 
     def send(self, dry_run: bool = False) -> str:
         """Sends or previews the email.
@@ -428,35 +477,46 @@ class FluxMail:
             If ``create()`` has not been called, or on send failure.
         """
         if not self.is_created:
-            raise FluxMailException("Call create() before send().")
+            raise FluxMailException("Call create() before send().", code="not_created")
         if dry_run:
             return self.display()
         if self.is_smtp() and not self.host.relay:
-            raise FluxMailException("No SMTP relay configured.")
+            raise FluxMailException("No SMTP relay configured.", code="no_relay")
 
         try:
-            if self.is_smtp() and self.host.relay:
-                self._transport.send(self.message)
+            if self.is_smtp():
+                if self.max_retries > 0:
+                    for attempt in Retrying(
+                        stop=stop_after_attempt(self.max_retries + 1),
+                        wait=wait_fixed(self.retry_delay),
+                        reraise=True,
+                    ):
+                        with attempt:
+                            self._transport.send(self.message)
+                else:
+                    self._transport.send(self.message)
                 return "Email sent successfully via SMTP."
             elif self.is_outlook():
                 raise FluxMailException(
-                    "Outlook requires user interaction to send emails and cannot send programmatically."
+                    "Outlook requires user interaction to send emails and cannot "
+                    "send programmatically.",
+                    code="outlook_no_send",
                 )
         except FluxMailException:
             raise
         except Exception as e:
             msg = f"Send failed: {e}"
             self.logger.error(msg)
-            raise FluxMailException(msg) from e
+            raise FluxMailException(msg, code="send_failed") from e
 
     def __enter__(self) -> "FluxMail":
         """Open a persistent SMTP connection for reuse across multiple sends."""
-        if self.is_smtp():
+        if self._transport is not None:
             self._transport.open()
         return self
 
     def __exit__(self, exc_type, exc_val, exc_tb) -> bool:
-        if self.is_smtp():
+        if self._transport is not None:
             self._transport.close()
         return False
 

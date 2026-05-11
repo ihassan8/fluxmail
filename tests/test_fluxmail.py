@@ -1,4 +1,8 @@
+import smtplib
+
 import pytest
+from unittest.mock import patch, MagicMock
+
 from fluxmail import FluxMail, FluxMailException, EmailInstance, EmailObject
 from fluxmail.testing import mock_smtp
 
@@ -396,3 +400,89 @@ class TestRepr:
         result = repr(smtp_email)
         assert "FluxMail" in result
         assert "smtp" in result.lower()
+
+
+class TestNewConstructorParams:
+    def test_timeout_default(self):
+        e = FluxMail(object_type="smtp", host=HOST)
+        assert e.timeout == 30
+
+    def test_custom_timeout(self):
+        e = FluxMail(object_type="smtp", host=HOST, timeout=60)
+        assert e.timeout == 60
+
+    def test_use_ssl_false_by_default(self):
+        e = FluxMail(object_type="smtp", host=HOST)
+        assert e.use_ssl is False
+
+    def test_max_retries_default(self):
+        e = FluxMail(object_type="smtp", host=HOST)
+        assert e.max_retries == 0
+
+    def test_retry_delay_default(self):
+        e = FluxMail(object_type="smtp", host=HOST)
+        assert e.retry_delay == 1.0
+
+    def test_use_ssl_and_use_tls_raises_invalid_config(self):
+        with pytest.raises(FluxMailException) as exc_info:
+            FluxMail(object_type="smtp", host=HOST, use_ssl=True, use_tls=True)
+        assert exc_info.value.code == "invalid_config"
+
+    def test_use_ssl_uses_smtp_ssl(self):
+        with patch("fluxmail._transport.smtplib.SMTP_SSL") as mock_ssl:
+            mock_ssl.return_value = MagicMock()
+            e = FluxMail(
+                object_type="smtp", host=HOST,
+                username="u@example.com", use_ssl=True,
+            )
+            e.create(subject="Hi", recipients=["a@b.com"], body="Hi").send()
+        mock_ssl.assert_called_once()
+
+
+class TestMessageID:
+    def test_message_id_set_after_create(self, smtp_email):
+        smtp_email.create(subject="Hi", recipients=["a@b.com"], body="Hello")
+        assert smtp_email.message["Message-ID"] is not None
+
+    def test_message_id_is_string(self, smtp_email):
+        smtp_email.create(subject="Hi", recipients=["a@b.com"], body="Hello")
+        assert isinstance(smtp_email.message["Message-ID"], str)
+
+
+class TestErrorCodes:
+    def test_send_before_create_has_not_created_code(self, smtp_email):
+        with pytest.raises(FluxMailException) as exc_info:
+            smtp_email.send()
+        assert exc_info.value.code == "not_created"
+
+    def test_empty_relay_has_no_relay_code(self):
+        e = FluxMail(object_type="smtp", host=EmailInstance(relay=""),
+                     username="u@example.com")
+        e.create(subject="Hi", recipients=["a@b.com"], body="Hi")
+        with pytest.raises(FluxMailException) as exc_info:
+            e.send()
+        assert exc_info.value.code == "no_relay"
+
+    def test_sender_required_code(self):
+        e = FluxMail(object_type="smtp", host=HOST, username="apikey")
+        with pytest.raises(FluxMailException) as exc_info:
+            e.create(subject="Hi", recipients=["a@b.com"], body="Hi")
+        assert exc_info.value.code == "sender_required"
+
+    def test_invalid_priority_code(self, smtp_email):
+        with pytest.raises(FluxMailException) as exc_info:
+            smtp_email.create(subject="Hi", recipients=["a@b.com"],
+                              body="Hi", priority="urgent")
+        assert exc_info.value.code == "invalid_priority"
+
+    def test_missing_attachment_code(self, smtp_email):
+        with pytest.raises(FluxMailException) as exc_info:
+            smtp_email.create(subject="Hi", recipients=["a@b.com"],
+                              body="Hi", attachments=["/nonexistent/file.pdf"])
+        assert exc_info.value.code == "attachment_not_found"
+
+    def test_invalid_email_code(self):
+        from fluxmail.utils import validate_email
+        with pytest.raises(FluxMailException) as exc_info:
+            validate_email("not-an-email")
+        assert exc_info.value.code == "invalid_email"
