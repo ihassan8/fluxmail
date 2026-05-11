@@ -91,12 +91,15 @@ Config is in `zensical.toml` (project root). Also install the library itself (`p
 
 | File | Role |
 |------|------|
-| `fluxmail.py` | `FluxMail` class — core email creation/sending logic |
+| `fluxmail.py` | `FluxMail` class — email creation, send, send_async, retry |
+| `_transport.py` | `_SMTPTransport` — all SMTP connection logic (sync + async, SSL variants) |
 | `utils.py` | `EmailObject`, `EmailInstance`, `FluxMailException`, `validate_email`, `str_to_enum` |
+| `template.py` | `EmailTemplate` — Jinja2 body renderer |
+| `bulk.py` | `BulkSender` — batch sender with Rich progress bar |
 | `fluxmail_cli.py` | Typer-based CLI; calls `FluxMail` |
-| `__init__.py` | Public exports: `FluxMail`, `FluxMailException`, `EmailInstance`, `EmailObject`, `__version__` |
+| `__init__.py` | Public exports: `FluxMail`, `FluxMailException`, `EmailInstance`, `EmailObject`, `EmailTemplate`, `BulkSender`, `__version__` |
 | `__main__.py` | `python -m fluxmail` entry point |
-| `testing.py` | `mock_smtp()` context manager for tests (not exported from `__init__.py`) |
+| `testing.py` | `mock_smtp()` context manager for tests (patches `fluxmail._transport.smtplib.SMTP`) |
 
 **Key design decisions:**
 
@@ -115,6 +118,13 @@ Config is in `zensical.toml` (project root). Also install the library itself (`p
 - **Multipart/alternative**: pass `html_body=True` + `plain_body="..."` to `create()` to build a `multipart/alternative` message; omitting `plain_body` sends HTML-only.
 - **Priority headers**: `priority="high"|"normal"|"low"` sets `X-Priority`, `Importance`, and `X-MSMail-Priority` headers (SMTP only).
 - **Thread headers**: `in_reply_to` and `references` set `In-Reply-To` / `References` MIME headers for reply threading (SMTP only).
+- `use_ssl=True` uses `smtplib.SMTP_SSL` (port 465 implicit TLS). Mutually exclusive with `use_tls=True`.
+- `timeout` (default `30`) is passed to every SMTP connection.
+- `ssl_context` accepts a custom `ssl.SSLContext` for cert customisation.
+- `max_retries` / `retry_delay` configure automatic retry via tenacity. Not applied to `send_async()`.
+- `send_async()` uses `aiosmtplib` and accepts the same TLS/timeout params as `send()`.
+- `EmailTemplate(template_str)` renders Jinja2 templates; use the result as `body=` in `create()`.
+- `BulkSender(mailer).send_batch(messages)` sends a list-of-dicts batch over one connection.
 
 **Typical API flow:**
 
@@ -159,16 +169,6 @@ Only update `requirements.txt` when adding library dependencies. `pyproject.toml
 | `1` | Invalid `--type`, missing body, or `--body`/`--body-file` conflict |
 | `2` | `FluxMailException` raised during send (e.g. missing sender, SMTP error) |
 | `99` | Unexpected/unhandled exception |
-
-## Planned Features
-
-Plans for future modules in `docs/superpowers/plans/`:
-1. **`EmailTemplate`** (`template.py`) — Jinja2-based body templating
-2. **`send_async()`** — async SMTP via `aiosmtplib`
-3. **Retry logic** — `max_retries`/`retry_delay` via `tenacity`
-4. **`BulkSender`** (`bulk.py`) — per-recipient send loop with progress bar
-
-New `__slots__` entries are required in `FluxMail` when adding instance attributes.
 
 ## Versioning
 
