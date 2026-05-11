@@ -1,0 +1,76 @@
+from typing import Any, Callable, Dict, List, Optional, Tuple
+
+from rich.progress import BarColumn, Progress, SpinnerColumn, TaskProgressColumn, TextColumn
+
+from .fluxmail import FluxMail
+from .utils import FluxMailException
+
+
+class BulkSender:
+    """Send a batch of emails over a single persistent SMTP connection."""
+
+    def __init__(self, mailer: FluxMail) -> None:
+        self._mailer = mailer
+
+    def send_batch(
+        self,
+        messages: List[Dict[str, Any]],
+        *,
+        on_success: Optional[Callable[[int, str], None]] = None,
+        on_error: Optional[Callable[[int, FluxMailException], None]] = None,
+        progress: bool = True,
+    ) -> Dict[str, Any]:
+        """Send a list of message kwargs through one SMTP connection.
+
+        Parameters
+        ----------
+        messages : list of dict
+            Each dict is unpacked as keyword arguments to ``FluxMail.create()``.
+        on_success : callable, optional
+            Called with ``(index, result_string)`` after each successful send.
+        on_error : callable, optional
+            Called with ``(index, exception)`` after each failed send.
+        progress : bool, optional
+            Show a Rich progress bar. Default: ``True``.
+
+        Returns
+        -------
+        dict
+            ``{"sent": int, "failed": int, "total": int,
+               "errors": List[Tuple[int, FluxMailException]]}``
+        """
+        sent = 0
+        failed = 0
+        total = len(messages)
+        errors: List[Tuple[int, FluxMailException]] = []
+
+        def _execute(prog=None, task_id=None):
+            nonlocal sent, failed
+            with self._mailer:
+                for i, kwargs in enumerate(messages):
+                    try:
+                        result = self._mailer.create(**kwargs).send()
+                        sent += 1
+                        if on_success:
+                            on_success(i, result)
+                    except FluxMailException as e:
+                        failed += 1
+                        errors.append((i, e))
+                        if on_error:
+                            on_error(i, e)
+                    if prog is not None:
+                        prog.advance(task_id)
+
+        if progress:
+            with Progress(
+                SpinnerColumn(),
+                TextColumn("[progress.description]{task.description}"),
+                BarColumn(),
+                TaskProgressColumn(),
+            ) as prog:
+                task_id = prog.add_task("Sending…", total=total)
+                _execute(prog, task_id)
+        else:
+            _execute()
+
+        return {"sent": sent, "failed": failed, "total": total, "errors": errors}
