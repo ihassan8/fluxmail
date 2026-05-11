@@ -80,7 +80,7 @@ def _make_connection(self) -> smtplib.SMTP:
 
 ### `send()` — transient path uses explicit `quit()` (not context manager `__exit__`)
 
-`smtplib.SMTP.__exit__` calls `close()`, skipping the `QUIT` handshake. To send `QUIT` consistently on transient sends:
+`smtplib.SMTP.__exit__` calls `close()`, skipping the `QUIT` handshake. To send `QUIT` consistently on transient sends. `quit()` is wrapped in its own `try/except` so a dropped connection after send does not mask the original send exception:
 
 ```python
 def send(self, message) -> None:
@@ -91,7 +91,10 @@ def send(self, message) -> None:
         try:
             conn.send_message(message)
         finally:
-            conn.quit()
+            try:
+                conn.quit()
+            except Exception:
+                pass
 ```
 
 ### `send_async()` — aiosmtplib parameter mapping
@@ -203,7 +206,19 @@ Same guards as `send()` (not_created, no_relay). Delegates to `_transport.send_a
 
 ### `__enter__` / `__exit__`
 
-Delegate to `_transport.open()` / `_transport.close()`. Guard: only called when `is_smtp()`.
+Delegate to `_transport.open()` / `_transport.close()`. Guard on `_transport is not None` (the Outlook invariant — `_transport` is always `None` for Outlook):
+
+```python
+def __enter__(self):
+    if self._transport is not None:
+        self._transport.open()
+    return self
+
+def __exit__(self, exc_type, exc_val, exc_tb):
+    if self._transport is not None:
+        self._transport.close()
+    return False
+```
 
 ### Error codes added throughout
 
@@ -219,6 +234,11 @@ Delegate to `_transport.open()` / `_transport.close()`. Guard: only called when 
 | `display()` failure | `"display_failed"` |
 | `_handle_sender()` no sender | `"sender_required"` |
 | `_handle_sender()` Outlook sender | `"outlook_no_sender"` |
+| `_validate_parameters()` empty subject | `"invalid_params"` |
+| `_validate_parameters()` non-list / empty recipients | `"invalid_params"` |
+| `_validate_parameters()` non-list cc | `"invalid_params"` |
+| `_validate_parameters()` non-list bcc | `"invalid_params"` |
+| `_validate_parameters()` non-list attachments | `"invalid_params"` |
 | `_validate_parameters()` bad priority | `"invalid_priority"` |
 | `_attach_files()` file not found | `"attachment_not_found"` |
 | `_read_file()` read error | `"read_error"` |
@@ -318,13 +338,38 @@ New flags added to the `send` command:
 
 ---
 
-## `testing.py` patch path update
+## `testing.py` — `mock_smtp()` redesign
 
-`mock_smtp()` currently patches `"fluxmail.fluxmail.smtplib.SMTP"`. With `smtplib` moved into `_transport.py`, the correct path is `"fluxmail._transport.smtplib.SMTP"`.
+Two changes are required, not just a path update.
 
-All existing tests that patch smtplib directly must also be updated to the new path. This affects:
-- `src/fluxmail/testing.py` — `mock_smtp()`
-- `tests/test_fluxmail.py` — `TestContextManager` tests (manual `patch` calls)
+### Why the behaviour must change
+
+The old `send()` used `with smtplib.SMTP(...) as smtp:` — a context manager — so the relevant mock surface was `mock_cls.return_value.__enter__.return_value`. The new `_transport.send()` calls `conn = self._make_connection()` without a context manager, so the relevant surface is `mock_cls.return_value` (the raw constructor return value).
+
+Tests that do `smtp.send_message.assert_called_once()` would silently pass with 0 calls if `mock_smtp()` still yields the `__enter__` result.
+
+### New `mock_smtp()` implementation
+
+```python
+@contextmanager
+def mock_smtp():
+    mock_instance = MagicMock()
+    mock_cls = MagicMock(return_value=mock_instance)
+
+    with patch("fluxmail._transport.smtplib.SMTP", mock_cls):
+        yield mock_instance
+```
+
+Changes from the old version:
+1. Patch path: `fluxmail.fluxmail.smtplib.SMTP` → `fluxmail._transport.smtplib.SMTP`
+2. Yields `mock_cls.return_value` (the raw construction result) instead of `mock_cls.return_value.__enter__.return_value`
+3. `__enter__`/`__exit__` setup removed — no longer needed
+
+### Manual patches in `TestContextManager`
+
+The two `TestContextManager` tests that call `patch("fluxmail.fluxmail.smtplib.SMTP", ...)` directly also need the path updated to `"fluxmail._transport.smtplib.SMTP"`. Their assertion on `mock_conn.send_message.call_count` remains correct because `_transport.send()` calls `self._conn.send_message()` on the persistent connection object, which is `mock_conn`.
+
+All `TestSend` tests use `mock_smtp()` and will automatically get the correct mock surface once `mock_smtp()` is updated.
 
 ---
 
