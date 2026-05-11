@@ -509,6 +509,36 @@ class FluxMail:
             self.logger.error(msg)
             raise FluxMailException(msg, code="send_failed") from e
 
+    async def send_async(self, dry_run: bool = False) -> str:
+        """Sends or previews the email asynchronously (SMTP only).
+
+        Note: retry (max_retries) is not supported for async sends.
+        """
+        if not self.is_created:
+            raise FluxMailException(
+                "Call create() before send_async().", code="not_created"
+            )
+        if dry_run:
+            return self.display()
+        if self.is_smtp() and not self.host.relay:
+            raise FluxMailException("No SMTP relay configured.", code="no_relay")
+
+        try:
+            if self.is_smtp():
+                await self._transport.send_async(self.message)
+                return "Email sent successfully via SMTP."
+            elif self.is_outlook():
+                raise FluxMailException(
+                    "Outlook does not support async sending.",
+                    code="outlook_no_async",
+                )
+        except FluxMailException:
+            raise
+        except Exception as e:
+            msg = f"Async send failed: {e}"
+            self.logger.error(msg)
+            raise FluxMailException(msg, code="send_failed") from e
+
     def __enter__(self) -> "FluxMail":
         """Open a persistent SMTP connection for reuse across multiple sends."""
         if self._transport is not None:

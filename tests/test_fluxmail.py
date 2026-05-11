@@ -1,7 +1,7 @@
 import smtplib
 
 import pytest
-from unittest.mock import patch, MagicMock
+from unittest.mock import patch, MagicMock, AsyncMock
 
 from fluxmail import FluxMail, FluxMailException, EmailInstance, EmailObject
 from fluxmail.testing import mock_smtp
@@ -486,3 +486,39 @@ class TestErrorCodes:
         with pytest.raises(FluxMailException) as exc_info:
             validate_email("not-an-email")
         assert exc_info.value.code == "invalid_email"
+
+
+# ── send_async() ──────────────────────────────────────────────────────────────
+
+class TestSendAsync:
+    async def test_send_async_before_create_raises(self, smtp_email):
+        with pytest.raises(FluxMailException) as exc_info:
+            await smtp_email.send_async()
+        assert exc_info.value.code == "not_created"
+
+    async def test_send_async_delegates_to_transport(self, smtp_email):
+        smtp_email.create(subject="Hi", recipients=["a@b.com"], body="Hello")
+        with patch.object(smtp_email._transport, "send_async",
+                          new_callable=AsyncMock) as mock_async:
+            await smtp_email.send_async()
+        mock_async.assert_called_once_with(smtp_email.message)
+
+    async def test_send_async_returns_success_string(self, smtp_email):
+        smtp_email.create(subject="Hi", recipients=["a@b.com"], body="Hello")
+        with patch.object(smtp_email._transport, "send_async",
+                          new_callable=AsyncMock):
+            result = await smtp_email.send_async()
+        assert "sent successfully" in result
+
+    async def test_send_async_dry_run_returns_preview(self, smtp_email):
+        smtp_email.create(subject="Hi", recipients=["a@b.com"], body="Hello")
+        result = await smtp_email.send_async(dry_run=True)
+        assert "Email Preview" in result
+
+    async def test_send_async_empty_relay_raises(self):
+        e = FluxMail(object_type="smtp", host=EmailInstance(relay=""),
+                     username="u@example.com")
+        e.create(subject="Hi", recipients=["a@b.com"], body="Hi")
+        with pytest.raises(FluxMailException) as exc_info:
+            await e.send_async()
+        assert exc_info.value.code == "no_relay"
