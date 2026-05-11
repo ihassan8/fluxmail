@@ -80,3 +80,19 @@ class TestValidateEmail:
     def test_leading_dot_raises(self):
         with pytest.raises(FluxMailException):
             validate_email(".user@example.com")
+
+
+# ── FluxMailException ─────────────────────────────────────────────────────────
+
+class TestFluxMailExceptionCode:
+    def test_code_stored(self):
+        exc = FluxMailException("something broke", code="send_failed")
+        assert exc.code == "send_failed"
+
+    def test_code_defaults_to_none(self):
+        exc = FluxMailException("something broke")
+        assert exc.code is None
+
+    def test_message_unaffected(self):
+        exc = FluxMailException("oops", code="x")
+        assert str(exc) == "oops"

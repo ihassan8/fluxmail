@@ -1,11 +1,15 @@
 import re
 from collections import namedtuple
 from enum import Enum
-from typing import Type, TypeVar, Union
+from typing import Optional, Type, TypeVar, Union
 
 
 class FluxMailException(Exception):
     """Custom exception class for FluxMail errors."""
+
+    def __init__(self, message: str, code: Optional[str] = None) -> None:
+        super().__init__(message)
+        self.code = code
 
 
 class EmailObject(Enum):
