@@ -60,6 +60,94 @@ FluxMail(object_type="smtp", host=EmailInstance(relay="smtp.myrelay.net"), ...)
 3. **Error** — if neither applies (e.g. SendGrid's `apikey` username or SMTP2Go's username token),
    `FluxMailException` is raised. Pass `sender=` explicitly in that case.
 
+## TLS Modes
+
+FluxMail supports two TLS modes for encrypted SMTP connections:
+
+| Mode | Parameter | Port | How it works |
+|------|-----------|------|--------------|
+| **STARTTLS** | `use_tls=True` | 587 | Starts as plain text, upgrades to TLS via STARTTLS command |
+| **Implicit TLS** | `use_ssl=True` | 465 | TLS from the first byte — uses `smtplib.SMTP_SSL` |
+
+The two modes are mutually exclusive. Passing both raises `FluxMailException(code="invalid_config")`.
+
+```python
+# STARTTLS — most providers, port 587
+FluxMail(object_type="smtp", host="smtp.gmail.com", port=587, use_tls=True, ...)
+
+# Implicit TLS — port 465
+FluxMail(object_type="smtp", host="smtp.example.com", port=465, use_ssl=True, ...)
+```
+
+### Custom SSL context
+
+For self-signed certificates or custom CA bundles, pass an `ssl.SSLContext`:
+
+```python
+import ssl
+from fluxmail import FluxMail
+
+ctx = ssl.create_default_context()
+ctx.load_verify_locations("/path/to/ca-bundle.crt")
+
+FluxMail(
+    object_type="smtp",
+    host="mail.internal.corp",
+    port=465,
+    use_ssl=True,
+    ssl_context=ctx,
+    ...
+)
+```
+
+To disable certificate verification entirely (development only — never in production):
+
+```python
+ctx = ssl.create_default_context()
+ctx.check_hostname = False
+ctx.verify_mode = ssl.CERT_NONE
+```
+
+## Connection Settings
+
+### Timeout
+
+The default SMTP connection timeout is **30 seconds**. Adjust it with the `timeout` parameter:
+
+```python
+FluxMail(
+    object_type="smtp",
+    host="smtp.gmail.com",
+    port=587,
+    use_tls=True,
+    timeout=10,   # fail fast — useful in latency-sensitive pipelines
+    username=os.environ["FLUXMAIL_USERNAME"],
+    password=os.environ["FLUXMAIL_PASSWORD"],
+)
+```
+
+### Retry on failure
+
+Transient SMTP errors (network blips, rate limits, temporary server failures) can be retried automatically:
+
+```python
+FluxMail(
+    object_type="smtp",
+    host="smtp.gmail.com",
+    port=587,
+    use_tls=True,
+    max_retries=3,     # up to 3 retries after the first attempt
+    retry_delay=2.0,   # 2-second pause between attempts
+    username=os.environ["FLUXMAIL_USERNAME"],
+    password=os.environ["FLUXMAIL_PASSWORD"],
+)
+```
+
+After exhausting all retries, `FluxMailException(code="send_failed")` is raised with the last error message. Retry is applied to `send()` only — `send_async()` does not retry.
+
+!!! tip "Retry + context manager"
+    Combining `max_retries` with the context manager (`with FluxMail(...) as mailer:`) is the recommended pattern for production bulk sends: one persistent connection with automatic retry on each message.
+
 ## SMTP Providers
 
 | Provider | Host | Port | Username | `sender=` required? | Free plan |

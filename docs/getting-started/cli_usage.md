@@ -23,7 +23,11 @@ Run `fluxmail --help` for full usage with formatted output.
 | `--port` | No | `25` | SMTP port. Use `587` for STARTTLS. |
 | `--username` | No | `$FLUXMAIL_USERNAME` | SMTP login username. When this is a valid email it also sets the default sender. |
 | `--password` | No | `$FLUXMAIL_PASSWORD` | SMTP login password (hidden in prompts) |
-| `--tls` / `--no-tls` | No | `--no-tls` | Enable STARTTLS |
+| `--tls` / `--no-tls` | No | `--no-tls` | Enable STARTTLS (port 587). Mutually exclusive with `--ssl`. |
+| `--ssl` / `--no-ssl` | No | `--no-ssl` | Use implicit TLS (port 465). Mutually exclusive with `--tls`. |
+| `--timeout` | No | `30` | SMTP connection timeout in seconds |
+| `--max-retries` | No | `0` | Number of send retries on failure |
+| `--retry-delay` | No | `1.0` | Seconds to wait between retries |
 | `--version` | No | — | Print version and exit |
 
 *Exactly one of `--body` or `--body-file` is required.
@@ -88,6 +92,33 @@ Run `fluxmail --help` for full usage with formatted output.
       --body "Hello" \
       --username me@gmail.com \
       --dry-run
+    ```
+
+=== "Implicit TLS (port 465)"
+
+    Some providers require implicit TLS on port 465 instead of STARTTLS on port 587.
+    Use `--ssl` instead of `--tls` in that case:
+
+    ```bash
+    fluxmail --type smtp --host smtp.example.com --port 465 --ssl \
+      --subject "Hello" \
+      --recipients user@example.com \
+      --body "Hi!" \
+      --username me@example.com
+    ```
+
+=== "Retry on failure"
+
+    Automatically retry up to 3 times with a 2-second pause between attempts:
+
+    ```bash
+    fluxmail --type smtp --host smtp.gmail.com --port 587 --tls \
+      --subject "Report" \
+      --recipients user@example.com \
+      --body "See attached." \
+      --username me@gmail.com \
+      --max-retries 3 \
+      --retry-delay 2
     ```
 
 !!! warning "Credentials in shell history"

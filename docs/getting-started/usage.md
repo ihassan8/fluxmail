@@ -153,6 +153,215 @@ with FluxMail(object_type="smtp", host="smtp.gmail.com", port=587, use_tls=True,
         mailer.create(subject="Hi", recipients=[recipient], body="Hello").send()
 ```
 
+## Implicit TLS (port 465)
+
+Some providers use implicit TLS on port 465 instead of STARTTLS on port 587.
+Use `use_ssl=True` instead of `use_tls=True`:
+
+```python
+FluxMail(
+    object_type="smtp",
+    host="smtp.example.com",
+    port=465,
+    use_ssl=True,   # implicit TLS — cannot be combined with use_tls=True
+    username="me@example.com",
+    password="secret",
+)
+```
+
+## Connection Timeout and Retry
+
+Control the SMTP connection timeout (default `30` seconds) and automatic retry
+for transient failures:
+
+```python
+FluxMail(
+    object_type="smtp",
+    host="smtp.gmail.com",
+    port=587,
+    use_tls=True,
+    timeout=15,        # fail after 15 s if server is unresponsive
+    max_retries=3,     # retry up to 3 times after the first attempt
+    retry_delay=2.0,   # wait 2 seconds between retries
+    username=os.environ["FLUXMAIL_USERNAME"],
+    password=os.environ["FLUXMAIL_PASSWORD"],
+)
+```
+
+After all retries are exhausted, `FluxMailException` is raised with the original
+error preserved via exception chaining.
+
+## Async Send
+
+`send_async()` is the async equivalent of `send()`. Use it inside `async` functions
+with any async framework (asyncio, FastAPI, Django async views, etc.):
+
+```python
+import asyncio
+import os
+from fluxmail import FluxMail
+
+async def main():
+    email = FluxMail(
+        object_type="smtp",
+        host="smtp.gmail.com",
+        port=587,
+        use_tls=True,
+        username=os.environ["FLUXMAIL_USERNAME"],
+        password=os.environ["FLUXMAIL_PASSWORD"],
+    )
+    email.create(
+        subject="Async notification",
+        recipients=["user@example.com"],
+        body="Sent with send_async().",
+    )
+    result = await email.send_async()
+    print(result)  # "Email sent successfully via SMTP."
+
+asyncio.run(main())
+```
+
+`send_async()` accepts `dry_run=True` for previews. Retry (`max_retries`) is
+**not** applied to async sends — handle retries in the caller if needed.
+
+## Email Templates
+
+`EmailTemplate` renders [Jinja2](https://jinja.palletsprojects.com/) templates so
+you can separate email content from code:
+
+```python
+from fluxmail import FluxMail, EmailTemplate
+
+tmpl = EmailTemplate(
+    "Hello {{ name }},\n\nYour order #{{ order_id }} has shipped."
+)
+
+body = tmpl.render(name="Alice", order_id=12345)
+
+FluxMail(
+    object_type="smtp",
+    host="smtp.gmail.com",
+    port=587,
+    use_tls=True,
+    username=os.environ["FLUXMAIL_USERNAME"],
+    password=os.environ["FLUXMAIL_PASSWORD"],
+).create(
+    subject="Your order has shipped",
+    recipients=["alice@example.com"],
+    body=body,
+).send()
+```
+
+### Load a template from a file
+
+```python
+# templates/welcome.html
+# <h1>Welcome, {{ first_name }}!</h1>
+# <p>Thanks for joining {{ company }}.</p>
+
+tmpl = EmailTemplate.from_file("templates/welcome.html", autoescape=True)
+body = tmpl.render(first_name="Bob", company="Acme Corp")
+```
+
+`autoescape=True` HTML-escapes all variables — use this for HTML emails to prevent
+injection. The default is `False` (safe for plain-text templates).
+
+### Inline template for HTML email
+
+```python
+html_tmpl = EmailTemplate(
+    """
+    <h2>Monthly Report — {{ month }}</h2>
+    <p>Total sent: <strong>{{ count }}</strong></p>
+    """,
+    autoescape=True,
+)
+
+email.create(
+    subject=f"Report for {month}",
+    recipients=["manager@example.com"],
+    body=html_tmpl.render(month="May 2026", count=4821),
+    html_body=True,
+)
+```
+
+## Bulk Sending
+
+`BulkSender` opens one SMTP connection and sends a batch of messages over it,
+which is significantly faster than reconnecting for each email:
+
+```python
+import os
+from fluxmail import FluxMail, BulkSender
+
+mailer = FluxMail(
+    object_type="smtp",
+    host="smtp.gmail.com",
+    port=587,
+    use_tls=True,
+    username=os.environ["FLUXMAIL_USERNAME"],
+    password=os.environ["FLUXMAIL_PASSWORD"],
+)
+
+messages = [
+    {"subject": f"Hi {name}", "recipients": [email], "body": f"Hello {name}!"}
+    for name, email in [("Alice", "alice@example.com"), ("Bob", "bob@example.com")]
+]
+
+result = BulkSender(mailer).send_batch(messages)
+print(result)
+# {"sent": 2, "failed": 0, "total": 2, "errors": []}
+```
+
+A Rich progress bar is shown by default. Pass `progress=False` to suppress it.
+
+### Callbacks and error handling
+
+```python
+def on_success(index: int, result: str) -> None:
+    print(f"[{index}] sent: {result}")
+
+def on_error(index: int, exc: FluxMailException) -> None:
+    print(f"[{index}] FAILED ({exc.code}): {exc}")
+
+result = BulkSender(mailer).send_batch(
+    messages,
+    on_success=on_success,
+    on_error=on_error,
+    progress=False,
+)
+
+# Inspect failures after the batch
+for idx, exc in result["errors"]:
+    print(f"Message {idx} failed: {exc}")
+```
+
+### BulkSender + templates
+
+Combine `EmailTemplate` with `BulkSender` for personalised batch emails:
+
+```python
+from fluxmail import FluxMail, BulkSender, EmailTemplate
+
+tmpl = EmailTemplate("Hi {{ name }}, your balance is {{ balance }}.")
+
+subscribers = [
+    {"name": "Alice", "email": "alice@example.com", "balance": "$120.00"},
+    {"name": "Bob",   "email": "bob@example.com",   "balance": "$45.00"},
+]
+
+messages = [
+    {
+        "subject": "Your account balance",
+        "recipients": [sub["email"]],
+        "body": tmpl.render(name=sub["name"], balance=sub["balance"]),
+    }
+    for sub in subscribers
+]
+
+BulkSender(mailer).send_batch(messages)
+```
+
 ## Outlook
 
 !!! warning "Windows only"

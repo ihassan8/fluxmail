@@ -14,6 +14,11 @@ FluxMail(
     host,
     port=25,
     use_tls=False,
+    use_ssl=False,
+    ssl_context=None,
+    timeout=30,
+    max_retries=0,
+    retry_delay=1.0,
     username=None,
     password=None,
     sender=None,
@@ -28,8 +33,13 @@ FluxMail(
 |-----------|------|---------|-------------|
 | `object_type` | `str \| EmailObject` | — | `"smtp"` or `"outlook"` (or `EmailObject.SMTP` / `EmailObject.OUTLOOK`) |
 | `host` | `str \| EmailInstance` | — | Relay hostname string, `"relay:domain"` shorthand, or `EmailInstance` |
-| `port` | `int` | `25` | SMTP port. Use `587` for STARTTLS. |
-| `use_tls` | `bool` | `False` | Enable STARTTLS negotiation |
+| `port` | `int` | `25` | SMTP port. Use `587` for STARTTLS, `465` for implicit TLS. |
+| `use_tls` | `bool` | `False` | Enable STARTTLS negotiation (port 587). Mutually exclusive with `use_ssl`. |
+| `use_ssl` | `bool` | `False` | Use implicit TLS via `smtplib.SMTP_SSL` (port 465). Mutually exclusive with `use_tls`. |
+| `ssl_context` | `ssl.SSLContext \| None` | `None` | Custom SSL context for certificate customisation (e.g. self-signed certs). Passed to both `use_tls` and `use_ssl` paths. |
+| `timeout` | `int` | `30` | SMTP connection timeout in seconds. |
+| `max_retries` | `int` | `0` | Number of additional attempts after the first send failure. `0` disables retry. Applied to `send()` only. |
+| `retry_delay` | `float` | `1.0` | Seconds to wait between retry attempts (tenacity `wait_fixed`). |
 | `username` | `str \| None` | `None` | SMTP login username. When a valid email, doubles as the `From` address. |
 | `password` | `str \| None` | `None` | SMTP login password |
 | `sender` | `str \| None` | `None` | Explicit `From` address. Overrides `username`. |
@@ -292,6 +302,78 @@ send(dry_run=False)
 
 ---
 
+### `send_async()`
+
+Async equivalent of `send()`. Delegates to `aiosmtplib` under the hood.
+`max_retries` is **not** applied — retry in the caller if needed.
+
+```python
+await send_async(dry_run=False)
+```
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `dry_run` | `bool` | `False` | If `True`, returns a preview string without sending (delegates to `display()`) |
+
+=== "Basic async send"
+
+    ```python
+    import asyncio, os
+    from fluxmail import FluxMail
+
+    async def main():
+        email = FluxMail(
+            object_type="smtp",
+            host="smtp.gmail.com",
+            port=587,
+            use_tls=True,
+            username=os.environ["FLUXMAIL_USERNAME"],
+            password=os.environ["FLUXMAIL_PASSWORD"],
+        )
+        email.create(
+            subject="Hello",
+            recipients=["user@example.com"],
+            body="Sent asynchronously.",
+        )
+        result = await email.send_async()
+        print(result)  # "Email sent successfully via SMTP."
+
+    asyncio.run(main())
+    ```
+
+=== "Inside FastAPI / async framework"
+
+    ```python
+    from fastapi import FastAPI
+    from fluxmail import FluxMail
+    import os
+
+    app = FastAPI()
+    mailer = FluxMail(
+        object_type="smtp",
+        host="smtp.gmail.com",
+        port=587,
+        use_tls=True,
+        username=os.environ["FLUXMAIL_USERNAME"],
+        password=os.environ["FLUXMAIL_PASSWORD"],
+    )
+
+    @app.post("/notify")
+    async def notify(user_email: str, message: str):
+        mailer.create(subject="Notification", recipients=[user_email], body=message)
+        return {"status": await mailer.send_async()}
+    ```
+
+=== "Dry-run preview"
+
+    ```python
+    email.create(subject="Hi", recipients=["user@example.com"], body="Hello")
+    preview = await email.send_async(dry_run=True)
+    print(preview)
+    ```
+
+---
+
 ### `display()`
 
 Return an email preview string (SMTP), or open the Outlook compose window (Outlook).
@@ -373,6 +455,166 @@ Useful for bulk sends where opening a new connection per message would be slow.
                 mailer.create(subject="Hi", recipients=[recipient], body="Hello").send()
             except FluxMailException as e:
                 print(f"Failed to send to {recipient}: {e}")
+    ```
+
+---
+
+## `EmailTemplate`
+
+Jinja2-based email body renderer. Separates template content from sending logic.
+
+```python
+from fluxmail import EmailTemplate
+
+EmailTemplate(template, autoescape=False)
+```
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `template` | `str` | — | Jinja2 template string |
+| `autoescape` | `bool` | `False` | HTML-escape all variables. Use `True` for HTML emails. |
+
+### `render()`
+
+```python
+render(**context) -> str
+```
+
+Returns the rendered string with all `{{ variable }}` placeholders replaced.
+
+=== "Plain text"
+
+    ```python
+    from fluxmail import EmailTemplate
+
+    tmpl = EmailTemplate("Hello {{ name }}, order #{{ order_id }} has shipped.")
+    body = tmpl.render(name="Alice", order_id=12345)
+    # "Hello Alice, order #12345 has shipped."
+    ```
+
+=== "HTML with autoescape"
+
+    ```python
+    tmpl = EmailTemplate(
+        "<h1>Hi {{ name }}</h1><p>{{ message }}</p>",
+        autoescape=True,
+    )
+    body = tmpl.render(name="Bob", message="<script>bad</script>")
+    # "<h1>Hi Bob</h1><p>&lt;script&gt;bad&lt;/script&gt;</p>"
+    ```
+
+### `from_file()`
+
+```python
+@classmethod
+from_file(path, autoescape=False) -> EmailTemplate
+```
+
+Load a template from a UTF-8 file.
+
+```python
+tmpl = EmailTemplate.from_file("templates/welcome.html", autoescape=True)
+body = tmpl.render(first_name="Alice", company="Acme")
+```
+
+---
+
+## `BulkSender`
+
+Sends a batch of emails over a single persistent SMTP connection.
+Significantly faster than reconnecting for each message.
+
+```python
+from fluxmail import FluxMail, BulkSender
+
+BulkSender(mailer)
+```
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `mailer` | `FluxMail` | Configured `FluxMail` instance (SMTP only) |
+
+### `send_batch()`
+
+```python
+send_batch(
+    messages,
+    *,
+    on_success=None,
+    on_error=None,
+    progress=True,
+) -> dict
+```
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `messages` | `list[dict]` | — | Each dict is unpacked as `**kwargs` into `FluxMail.create()` |
+| `on_success` | `Callable[[int, str], None] \| None` | `None` | Called with `(index, result_string)` after each successful send |
+| `on_error` | `Callable[[int, FluxMailException], None] \| None` | `None` | Called with `(index, exception)` after each failed send |
+| `progress` | `bool` | `True` | Show a Rich progress bar in the terminal |
+
+**Returns** a `dict` with keys:
+
+| Key | Type | Description |
+|-----|------|-------------|
+| `sent` | `int` | Number of messages sent successfully |
+| `failed` | `int` | Number of messages that raised `FluxMailException` |
+| `total` | `int` | Total messages in the batch |
+| `errors` | `list[tuple[int, FluxMailException]]` | `(index, exception)` for each failure |
+
+=== "Simple batch"
+
+    ```python
+    import os
+    from fluxmail import FluxMail, BulkSender
+
+    mailer = FluxMail(
+        object_type="smtp",
+        host="smtp.gmail.com",
+        port=587,
+        use_tls=True,
+        username=os.environ["FLUXMAIL_USERNAME"],
+        password=os.environ["FLUXMAIL_PASSWORD"],
+    )
+
+    messages = [
+        {"subject": f"Hi {name}", "recipients": [email], "body": f"Hello {name}!"}
+        for name, email in [
+            ("Alice", "alice@example.com"),
+            ("Bob",   "bob@example.com"),
+        ]
+    ]
+
+    result = BulkSender(mailer).send_batch(messages)
+    print(result["sent"], "sent,", result["failed"], "failed")
+    ```
+
+=== "With callbacks"
+
+    ```python
+    from fluxmail import BulkSender, FluxMailException
+
+    def on_success(i: int, result: str) -> None:
+        print(f"[{i}] OK")
+
+    def on_error(i: int, exc: FluxMailException) -> None:
+        print(f"[{i}] FAILED ({exc.code}): {exc}")
+
+    result = BulkSender(mailer).send_batch(
+        messages,
+        on_success=on_success,
+        on_error=on_error,
+        progress=False,
+    )
+
+    for idx, exc in result["errors"]:
+        print(f"  Message {idx}: {exc}")
+    ```
+
+=== "No progress bar"
+
+    ```python
+    result = BulkSender(mailer).send_batch(messages, progress=False)
     ```
 
 ---
@@ -473,8 +715,45 @@ FluxMail(object_type="outlook", ...)
 
 ::: fluxmail.utils.FluxMailException
 
-All errors raised by FluxMail are `FluxMailException` instances. A single `try/except` covers
-both `create()` and `send()`:
+All errors raised by FluxMail are `FluxMailException` instances. Every exception
+carries an optional `code` attribute for programmatic error handling.
+
+| `exc.code` | Raised when |
+|------------|-------------|
+| `"not_created"` | `send()` / `send_async()` / `display()` called before `create()` |
+| `"no_relay"` | SMTP relay hostname is empty |
+| `"sender_required"` | `sender=` not provided and `username` is not a valid email |
+| `"invalid_config"` | `use_ssl=True` + `use_tls=True` together, or invalid logger |
+| `"invalid_params"` | Empty subject, non-list recipients/cc/bcc/attachments |
+| `"invalid_priority"` | `priority` value not `"high"`, `"normal"`, or `"low"` |
+| `"invalid_email"` | Email address fails format validation |
+| `"no_email"` | Empty string passed to `validate_email()` |
+| `"attachment_not_found"` | Attachment path does not exist |
+| `"read_error"` | Cannot read an attachment file |
+| `"send_failed"` | SMTP send failure (after all retries) |
+| `"display_failed"` | `display()` raised an unexpected error |
+| `"outlook_no_send"` | `send()` called on an Outlook instance |
+| `"outlook_no_async"` | `send_async()` called on an Outlook instance |
+| `"outlook_no_sender"` | `sender=` set on an Outlook instance |
+| `None` | Any raise without an assigned code |
+
+A single `try/except` covers both `create()` and `send()`:
+
+=== "Check error code"
+
+    ```python
+    from fluxmail import FluxMail, FluxMailException
+
+    try:
+        email.send()
+    except FluxMailException as e:
+        if e.code == "send_failed":
+            print(f"SMTP error: {e}")
+        elif e.code == "not_created":
+            print("Call create() first")
+        else:
+            raise
+    ```
 
 === "Basic error handling"
 
