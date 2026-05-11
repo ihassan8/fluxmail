@@ -76,3 +76,7 @@ class TestValidateEmail:
         # Previously only .gov was enforced for gov hosts — now any domain passes
         assert validate_email("user@gmail.com") == "user@gmail.com"
         assert validate_email("user@company.org") == "user@company.org"
+
+    def test_leading_dot_raises(self):
+        with pytest.raises(FluxMailException):
+            validate_email(".user@example.com")

@@ -20,7 +20,8 @@ classifiers = [
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "Topic :: Software Development :: Libraries :: Python Modules",
-    "Topic :: System :: Logging",
+    "Topic :: Communications :: Email",
+    "Topic :: Internet",
     "Typing :: Typed",
 ]
 requires-python = ">=3.8"

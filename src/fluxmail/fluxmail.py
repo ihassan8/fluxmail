@@ -368,7 +368,7 @@ class FluxMail:
         except Exception as e:
             msg = f"Error reading file '{file}': {e}"
             self.logger.error(msg)
-            raise FluxMailException(msg)
+            raise FluxMailException(msg) from e
 
     def display(self) -> str:
         """Displays or returns an email preview.
@@ -396,7 +396,7 @@ class FluxMail:
         except Exception as e:
             msg = f"Display failed: {e}"
             self.logger.error(msg)
-            raise FluxMailException(msg)
+            raise FluxMailException(msg) from e
 
     def send(self, dry_run: bool = False) -> str:
         """Sends or previews the email.
@@ -420,6 +420,8 @@ class FluxMail:
             raise FluxMailException("Call create() before send().")
         if dry_run:
             return self.display()
+        if self.is_smtp() and not self.host.relay:
+            raise FluxMailException("No SMTP relay configured.")
 
         try:
             if self.is_smtp() and self.host.relay:
@@ -442,7 +444,7 @@ class FluxMail:
         except Exception as e:
             msg = f"Send failed: {e}"
             self.logger.error(msg)
-            raise FluxMailException(msg)
+            raise FluxMailException(msg) from e
 
     def __enter__(self) -> "FluxMail":
         """Open a persistent SMTP connection for reuse across multiple sends."""

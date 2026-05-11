@@ -5,7 +5,7 @@ from typing_extensions import Annotated
 
 from . import __version__
 from .fluxmail import FluxMail, FluxMailException, EmailObject
-from .utils import EmailInstance, str_to_enum
+from .utils import str_to_enum
 
 app = typer.Typer(
     name="fluxmail",
@@ -13,28 +13,6 @@ app = typer.Typer(
     no_args_is_help=True,
     rich_markup_mode="rich",
 )
-
-
-def _resolve_host(host_str: str) -> EmailInstance:
-    """Parse a host string into an ``EmailInstance``.
-
-    Accepts either a bare relay hostname or a ``relay:domain`` pair.
-
-    Parameters
-    ----------
-    host_str : str
-        Relay hostname (e.g. ``"smtp.gmail.com"``) or
-        ``"relay:domain"`` pair (e.g. ``"smtp.gmail.com:gmail.com"``).
-
-    Returns
-    -------
-    EmailInstance
-        Parsed host object.
-    """
-    if ":" in host_str:
-        relay, domain = host_str.split(":", 1)
-        return EmailInstance(relay=relay.strip(), domain=domain.strip())
-    return EmailInstance(relay=host_str.strip())
 
 
 def _version_callback(value: bool):
@@ -165,12 +143,10 @@ def send(
         typer.echo(f"[ERROR] Invalid --type: {e}", err=True)
         raise typer.Exit(1)
 
-    email_host = _resolve_host(host)
-
     try:
         email = FluxMail(
             object_type=email_obj,
-            host=email_host,
+            host=host,
             port=port,
             username=username,
             password=password,

@@ -154,3 +154,21 @@ def test_body_file_not_found_exits_1(tmp_path):
         "--username", "sender@example.com",
     ])
     assert result.exit_code == 1
+
+
+def test_cc_flag():
+    with mock_smtp():
+        result = runner.invoke(app, BASE + ["--cc", "cc@example.com"])
+    assert result.exit_code == 0
+
+
+def test_bcc_flag():
+    with mock_smtp():
+        result = runner.invoke(app, BASE + ["--bcc", "bcc@example.com"])
+    assert result.exit_code == 0
+
+
+def test_reply_to_flag():
+    with mock_smtp():
+        result = runner.invoke(app, BASE + ["--reply-to", "reply@example.com"])
+    assert result.exit_code == 0

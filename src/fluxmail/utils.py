@@ -99,9 +99,9 @@ def validate_email(item: str) -> str:
     if not item:
         raise FluxMailException("No email address provided.")
 
-    email = item.strip().lower().strip(".")
+    email = item.strip().lower().rstrip(".")
 
-    if ".@" in email or "@" not in email or "@." in email:
+    if email.startswith(".") or ".@" in email or "@" not in email or "@." in email:
         raise FluxMailException(f"Invalid email '{email}': format issue.")
 
     if not EMAIL_REGEX.match(email):

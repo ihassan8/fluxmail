@@ -328,3 +328,71 @@ class TestDisplay:
         result = smtp_email.display()
         assert isinstance(result, str)
         assert "Email Preview" in result
+
+
+# ── attachments ───────────────────────────────────────────────────────────────
+
+class TestAttachments:
+    def test_attach_existing_file(self, smtp_email, tmp_path):
+        f = tmp_path / "note.txt"
+        f.write_text("hello")
+        smtp_email.create(subject="Hi", recipients=["a@b.com"], body="Hi",
+                          attachments=[str(f)])
+        assert smtp_email.is_created
+
+    def test_missing_attachment_raises(self, smtp_email, tmp_path):
+        with pytest.raises(FluxMailException, match="Attachment not found"):
+            smtp_email.create(subject="Hi", recipients=["a@b.com"], body="Hi",
+                              attachments=[str(tmp_path / "missing.pdf")])
+
+    def test_send_with_attachment(self, smtp_email, tmp_path):
+        f = tmp_path / "report.pdf"
+        f.write_bytes(b"%PDF fake")
+        with mock_smtp() as smtp:
+            smtp_email.create(subject="Hi", recipients=["a@b.com"], body="Hi",
+                              attachments=[str(f)])
+            smtp_email.send()
+        smtp.send_message.assert_called_once()
+
+    def test_string_attachments_raises(self, smtp_email):
+        with pytest.raises(FluxMailException):
+            smtp_email.create(subject="Hi", recipients=["a@b.com"], body="Hi",
+                              attachments="file.txt")
+
+
+# ── instance reuse ────────────────────────────────────────────────────────────
+
+class TestInstanceReuse:
+    def test_create_twice_resets_message(self, smtp_email):
+        smtp_email.create(subject="First", recipients=["a@b.com"], body="1")
+        smtp_email.create(subject="Second", recipients=["b@c.com"], body="2")
+        assert smtp_email.message["Subject"] == "Second"
+        assert "b@c.com" in smtp_email.message["To"]
+        assert smtp_email.message["Subject"] != "First"
+
+    def test_send_twice_without_context_manager(self):
+        with mock_smtp() as smtp:
+            e = FluxMail(object_type="smtp", host=HOST, username="u@example.com")
+            e.create(subject="A", recipients=["a@b.com"], body="1").send()
+            e.create(subject="B", recipients=["a@b.com"], body="2").send()
+        assert smtp.send_message.call_count == 2
+
+
+# ── empty relay ───────────────────────────────────────────────────────────────
+
+class TestEmptyRelay:
+    def test_send_with_empty_relay_raises(self):
+        e = FluxMail(object_type="smtp", host=EmailInstance(relay=""),
+                     username="u@example.com")
+        e.create(subject="Hi", recipients=["a@b.com"], body="Hi")
+        with pytest.raises(FluxMailException, match="relay"):
+            e.send()
+
+
+# ── repr ──────────────────────────────────────────────────────────────────────
+
+class TestRepr:
+    def test_repr_contains_type_and_host(self, smtp_email):
+        result = repr(smtp_email)
+        assert "FluxMail" in result
+        assert "smtp" in result.lower()
