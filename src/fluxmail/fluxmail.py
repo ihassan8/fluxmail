@@ -2,7 +2,6 @@ import logging
 import mimetypes
 import os
 import platform
-import smtplib
 from email.message import EmailMessage
 from typing import List, Optional, Tuple, Union
 
@@ -14,6 +13,7 @@ else:
 
 from pylogshield import get_logger
 
+from ._transport import _SMTPTransport
 from .utils import (
     FluxMailException,
     EMAIL_REGEX,
@@ -59,6 +59,7 @@ class FluxMail:
         "references",
         "priority",
         "_smtp_conn",
+        "_transport",
     )
 
     def __init__(
@@ -139,6 +140,16 @@ class FluxMail:
         self.references = None
         self.priority = None
         self._smtp_conn = None
+        self._transport = _SMTPTransport(
+            relay=self.host.relay,
+            port=self.port,
+            use_ssl=False,
+            use_tls=self.use_tls,
+            ssl_context=None,
+            timeout=10,
+            username=self.username,
+            password=self.password,
+        )
 
         self.logger.debug("Initializing FluxMail instance...")
 
@@ -425,15 +436,7 @@ class FluxMail:
 
         try:
             if self.is_smtp() and self.host.relay:
-                if self._smtp_conn is not None:
-                    self._smtp_conn.send_message(self.message)
-                else:
-                    with smtplib.SMTP(self.host.relay, self.port) as smtp:
-                        if self.use_tls:
-                            smtp.starttls()
-                        if self.username and self.password:
-                            smtp.login(self.username, self.password)
-                        smtp.send_message(self.message)
+                self._transport.send(self.message)
                 return "Email sent successfully via SMTP."
             elif self.is_outlook():
                 raise FluxMailException(
@@ -449,20 +452,12 @@ class FluxMail:
     def __enter__(self) -> "FluxMail":
         """Open a persistent SMTP connection for reuse across multiple sends."""
         if self.is_smtp():
-            self._smtp_conn = smtplib.SMTP(self.host.relay, self.port)
-            if self.use_tls:
-                self._smtp_conn.starttls()
-            if self.username and self.password:
-                self._smtp_conn.login(self.username, self.password)
+            self._transport.open()
         return self
 
     def __exit__(self, exc_type, exc_val, exc_tb) -> bool:
-        if self._smtp_conn is not None:
-            try:
-                self._smtp_conn.quit()
-            except Exception:
-                pass
-            self._smtp_conn = None
+        if self.is_smtp():
+            self._transport.close()
         return False
 
     def __repr__(self) -> str:

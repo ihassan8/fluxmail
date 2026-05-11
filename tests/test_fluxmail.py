@@ -288,7 +288,7 @@ class TestContextManager:
         mock_conn = MagicMock()
         mock_cls = MagicMock(return_value=mock_conn)
 
-        with patch("fluxmail.fluxmail.smtplib.SMTP", mock_cls):
+        with patch("fluxmail._transport.smtplib.SMTP", mock_cls):
             with FluxMail(object_type="smtp", host=HOST,
                            username="u@example.com") as mailer:
                 mailer.create(subject="A", recipients=["a@b.com"], body="1").send()
@@ -302,7 +302,7 @@ class TestContextManager:
         mock_conn = MagicMock()
         mock_cls = MagicMock(return_value=mock_conn)
 
-        with patch("fluxmail.fluxmail.smtplib.SMTP", mock_cls):
+        with patch("fluxmail._transport.smtplib.SMTP", mock_cls):
             with FluxMail(object_type="smtp", host=HOST,
                            username="u@example.com") as mailer:
                 mailer.create(subject="A", recipients=["a@b.com"], body="1").send()
