@@ -53,8 +53,8 @@ where = ["src"]
 dependencies = {file = ["requirements.txt"]}
 
 [tool.setuptools_scm]
-# Auto generate _version.py with the corresponding git tag
 version_file = "src/fluxmail/_version.py"
+local_scheme = "no-local-version"
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

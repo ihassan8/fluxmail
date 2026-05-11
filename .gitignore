@@ -187,3 +187,4 @@ cover/
 
 # wandb
 wandb/
+src/fluxmail/_version.py
