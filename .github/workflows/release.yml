@@ -1,5 +1,5 @@
 # ==============================================================================
-# 🚢 Release Workflow — Project Caller
+# 🚢 Release Workflow
 # ==============================================================================
 # Save this file in YOUR PROJECT repo at:
 #   .github/workflows/release.yml
@@ -36,8 +36,9 @@
 #
 #   2. Create GitHub Environments:
 #      Settings → Environments → New environment
-#        - "pypi"      (real PyPI — add Required reviewers for safety)
-#        - "test-pypi" (TestPyPI sandbox — no reviewers needed)
+#        - "pypi"         (real PyPI — add Required reviewers for safety)
+#        - "test-pypi"    (TestPyPI sandbox — no reviewers needed)
+#        - "github-pages" (Pages deployment environment)
 #
 #   3. Register Trusted Publisher on pypi.org:
 #      pypi.org → your project → Publishing → Add publisher
@@ -46,16 +47,15 @@
 #        workflow = release.yml
 #        env      = pypi
 #
-#   4. Create docs/requirements.txt:
-#        mkdocs-material==9.5.18
-#        mkdocstrings[python]==0.24.3
+#   4. docs/requirements.txt should contain:
+#        zensical>=0.0.39
+#        mkdocstrings[python]>=0.24
 #
 # CUSTOMISE PER PROJECT:
 #   python-version   — match your project's Python version
 #   test-command     — your test runner command
 #   publish-target   — 'both' | 'pypi' | 'testpypi'
 #   src-layout       — true if you use a src/ directory layout
-#   mkdocs-strict    — false to allow doc build warnings
 # ==============================================================================
 
 name: 🚢 Release
@@ -71,12 +71,12 @@ on:
 jobs:
 
   # ============================================================
-  # 📚 Deploy MkDocs to GitHub Pages
+  # 📚 Deploy Zensical docs to GitHub Pages
   # Runs on: push to main, manual dispatch
   # ============================================================
   docs:
     name: 📚 Deploy Docs
-    uses: vertex-ai-automations/shared-workflows/.github/workflows/publish-mkdocs.yml@main
+    uses: vertex-ai-automations/shared-workflows/.github/workflows/publish-zensical.yml@main
     permissions:
       contents: read
       pages: write
@@ -84,13 +84,12 @@ jobs:
     with:
       python-version: "3.11"
       docs-requirements: "docs/requirements.txt"
-      src-layout: true       # ← set false if not using src/ layout
-      mkdocs-strict: true    # ← set false to allow doc build warnings
+      src-layout: true
     secrets: inherit
 
   # ============================================================
   # 📦 Build and Publish Package
-  # Runs on: tag push only (tag guard is enforced inside the
+  # Runs on: tag push only (tag guard enforced inside the
   # reusable workflow — non-tag pushes skip cleanly)
   #
   # publish-target controls which registries receive the package:
@@ -113,4 +112,3 @@ jobs:
       publish-target: "pypi"          # 'both' | 'pypi' | 'testpypi'
       use-trusted-publishing: false    # set false to use PYPI_API_TOKEN instead
     secrets: inherit
-

@@ -10,6 +10,7 @@ FluxMail is a Python library for email automation supporting SMTP and Outlook pr
 
 ```bash
 pip install -e .
+pip install -r requirements-dev.txt   # test dependencies (pytest)
 ```
 
 ## Build
@@ -17,6 +18,28 @@ pip install -e .
 ```bash
 pip install build
 python -m build    # produces wheel + sdist in dist/
+```
+
+## Testing
+
+```bash
+pytest                                              # run all tests
+pytest tests/test_fluxmail.py                       # single file
+pytest tests/test_fluxmail.py::TestSend             # single class
+pytest tests/test_fluxmail.py::TestSend::test_send_calls_send_message  # single test
+pytest -k "tls"                                     # keyword filter
+```
+
+`conftest.py` provides the `smtp_email` fixture (host + username pre-configured).
+
+Use `mock_smtp()` from `fluxmail.testing` to patch `smtplib.SMTP` without real network connections:
+
+```python
+from fluxmail.testing import mock_smtp
+
+with mock_smtp() as smtp:
+    mailer.create(...).send()
+    smtp.send_message.assert_called_once()
 ```
 
 ## Run CLI
@@ -28,6 +51,10 @@ The CLI is built with **Typer**. Run `fluxmail --help` for full usage with Rich-
 FLUXMAIL_USERNAME=me@gmail.com FLUXMAIL_PASSWORD=secret \
   fluxmail --type smtp --host smtp.gmail.com --port 587 --tls \
   --subject "Test" --recipients someone@example.com --body "Hello"
+
+# Body from file (mutually exclusive with --body)
+fluxmail --type smtp --host smtp.gmail.com --port 587 --tls \
+  --subject "Test" --recipients someone@example.com --body-file message.html --html
 
 # relay:domain pair
 fluxmail --type smtp --host smtp.myrelay.com:mycompany.com \
@@ -48,15 +75,15 @@ Credentials can also be passed inline via `--username` / `--password`, but env v
 Docs tooling (separate from library dependencies):
 
 ```bash
-pip install mkdocs-material mkdocstrings-python mkdocs-autorefs
+pip install -r docs/requirements.txt   # zensical + mkdocstrings[python]
 ```
 
 ```bash
-mkdocs serve    # preview at http://localhost:8000
-mkdocs build    # build static site to public/
+zensical serve    # preview at http://localhost:8000
+zensical build    # build static site to public/
 ```
 
-Config is in `mkdocs.yml` (project root).
+Config is in `zensical.toml` (project root). Also install the library itself (`pip install -e .`) so mkdocstrings can import the package for API docs.
 
 ## Architecture
 
@@ -85,6 +112,9 @@ Config is in `mkdocs.yml` (project root).
 - `create()` resets `self.message` on each call — the same `FluxMail` instance can be reused.
 - `display()` returns an email preview string (SMTP) or opens Outlook's display window. `send(dry_run=True)` delegates to `display()` internally.
 - `__enter__`/`__exit__` open a persistent SMTP connection for reuse across multiple sends.
+- **Multipart/alternative**: pass `html_body=True` + `plain_body="..."` to `create()` to build a `multipart/alternative` message; omitting `plain_body` sends HTML-only.
+- **Priority headers**: `priority="high"|"normal"|"low"` sets `X-Priority`, `Importance`, and `X-MSMail-Priority` headers (SMTP only).
+- **Thread headers**: `in_reply_to` and `references` set `In-Reply-To` / `References` MIME headers for reply threading (SMTP only).
 
 **Typical API flow:**
 
@@ -119,7 +149,7 @@ All type annotations must use `typing` module forms (`List`, `Optional`, `Union`
 
 ## Adding Dependencies
 
-Only update `requirements.txt` when adding dependencies. Both `pyproject.toml` (via `dynamic = ["dependencies"]`) and `setup.py` read from it automatically — no other file needs changing.
+Only update `requirements.txt` when adding library dependencies. `pyproject.toml` reads from it automatically via `dynamic = ["dependencies"]` — no other file needs changing. Add test-only dependencies to `requirements-dev.txt`.
 
 ## CLI Exit Codes
 
@@ -147,4 +177,3 @@ Version is managed by `setuptools_scm` from git tags and written to `src/fluxmai
 ## Notes
 
 - MIME type for SMTP attachments is auto-detected via `mimetypes.guess_type` (stdlib); no extra dependency needed.
-- Tests live in `tests/`. Run with `pytest`. `conftest.py` provides the `smtp_email` fixture (host + username pre-configured).

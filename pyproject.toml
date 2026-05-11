@@ -39,7 +39,9 @@ issues = "https://github.com/vertex-ai-automations/fluxmail/issues/new"
 [project.scripts]
 fluxmail = "fluxmail.fluxmail_cli:main"
 
-# version and requirements are dynamically pulled from setup.py. We may enable this in future if setup.py gets deprecated
+[tool.setuptools.packages.find]
+where = ["src"]
+
 [tool.setuptools.dynamic]
 dependencies = {file = ["requirements.txt"]}
 
