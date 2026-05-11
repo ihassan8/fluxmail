@@ -522,3 +522,50 @@ class TestSendAsync:
         with pytest.raises(FluxMailException) as exc_info:
             await e.send_async()
         assert exc_info.value.code == "no_relay"
+
+
+# ── retry ─────────────────────────────────────────────────────────────────────
+
+class TestRetry:
+    def test_retries_on_failure_then_succeeds(self):
+        call_count = 0
+
+        def failing_then_ok(message):
+            nonlocal call_count
+            call_count += 1
+            if call_count < 3:
+                raise smtplib.SMTPException("transient")
+
+        e = FluxMail(object_type="smtp", host=HOST,
+                     username="u@example.com", max_retries=3, retry_delay=0)
+        e.create(subject="Hi", recipients=["a@b.com"], body="Hello")
+        with patch.object(e._transport, "send", side_effect=failing_then_ok):
+            result = e.send()
+        assert call_count == 3
+        assert "sent successfully" in result
+
+    def test_raises_after_exhausting_all_retries(self):
+        e = FluxMail(object_type="smtp", host=HOST,
+                     username="u@example.com", max_retries=2, retry_delay=0)
+        e.create(subject="Hi", recipients=["a@b.com"], body="Hello")
+        with patch.object(e._transport, "send",
+                          side_effect=smtplib.SMTPException("always fails")):
+            with pytest.raises(FluxMailException) as exc_info:
+                e.send()
+        assert exc_info.value.code == "send_failed"
+
+    def test_no_retry_when_max_retries_zero(self):
+        call_count = 0
+
+        def count_and_fail(message):
+            nonlocal call_count
+            call_count += 1
+            raise smtplib.SMTPException("fail")
+
+        e = FluxMail(object_type="smtp", host=HOST,
+                     username="u@example.com", max_retries=0)
+        e.create(subject="Hi", recipients=["a@b.com"], body="Hello")
+        with patch.object(e._transport, "send", side_effect=count_and_fail):
+            with pytest.raises(FluxMailException):
+                e.send()
+        assert call_count == 1
