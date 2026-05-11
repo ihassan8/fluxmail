@@ -25,7 +25,7 @@ def test_version():
 def test_help():
     result = runner.invoke(app, ["--help"])
     assert result.exit_code == 0
-    assert "--type" in result.output
+    assert "smtp" in result.output
 
 
 def test_basic_send():
