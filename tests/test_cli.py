@@ -1,5 +1,6 @@
 import pytest
 from typer.testing import CliRunner
+from unittest.mock import MagicMock, patch
 from fluxmail.fluxmail_cli import app
 from fluxmail.testing import mock_smtp
 
@@ -172,3 +173,33 @@ def test_reply_to_flag():
     with mock_smtp():
         result = runner.invoke(app, BASE + ["--reply-to", "reply@example.com"])
     assert result.exit_code == 0
+
+
+def test_ssl_flag():
+    with patch("fluxmail._transport.smtplib.SMTP_SSL") as mock_ssl:
+        mock_ssl.return_value = MagicMock()
+        result = runner.invoke(app, BASE + ["--ssl"])
+    assert result.exit_code == 0
+
+
+def test_timeout_flag():
+    with mock_smtp():
+        result = runner.invoke(app, BASE + ["--timeout", "60"])
+    assert result.exit_code == 0
+
+
+def test_max_retries_flag():
+    with mock_smtp():
+        result = runner.invoke(app, BASE + ["--max-retries", "2"])
+    assert result.exit_code == 0
+
+
+def test_retry_delay_flag():
+    with mock_smtp():
+        result = runner.invoke(app, BASE + ["--retry-delay", "0.5"])
+    assert result.exit_code == 0
+
+
+def test_ssl_and_tls_together_exits_2():
+    result = runner.invoke(app, BASE + ["--ssl", "--tls"])
+    assert result.exit_code == 2

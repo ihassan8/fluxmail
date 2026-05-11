@@ -95,6 +95,23 @@ def send(
         ),
     ] = None,
     tls: Annotated[bool, typer.Option("--tls/--no-tls", help="Enable STARTTLS.")] = False,
+    ssl: Annotated[
+        bool,
+        typer.Option("--ssl/--no-ssl",
+                     help="Use implicit TLS (port 465). Mutually exclusive with --tls."),
+    ] = False,
+    timeout: Annotated[
+        int,
+        typer.Option(help="SMTP connection timeout in seconds."),
+    ] = 30,
+    max_retries: Annotated[
+        int,
+        typer.Option("--max-retries", help="Number of send retries on failure."),
+    ] = 0,
+    retry_delay: Annotated[
+        float,
+        typer.Option("--retry-delay", help="Seconds to wait between retries."),
+    ] = 1.0,
     # ── Meta ────────────────────────────────────────────────────────────────
     version: Annotated[
         bool,
@@ -125,6 +142,10 @@ def send(
         typer.echo("[ERROR] --body and --body-file are mutually exclusive.", err=True)
         raise typer.Exit(1)
 
+    if tls and ssl:
+        typer.echo("[ERROR] --tls and --ssl are mutually exclusive.", err=True)
+        raise typer.Exit(2)
+
     if body_file:
         try:
             with open(body_file, "r", encoding="utf-8") as fh:
@@ -151,6 +172,10 @@ def send(
             username=username,
             password=password,
             use_tls=tls,
+            use_ssl=ssl,
+            timeout=timeout,
+            max_retries=max_retries,
+            retry_delay=retry_delay,
         )
         email.create(
             subject=subject,
