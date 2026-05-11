@@ -1,5 +1,5 @@
 import smtplib
-from unittest.mock import MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
@@ -155,3 +155,46 @@ class TestOpenClose:
         t._conn = mock_conn
         t.close()  # must not raise
         assert t._conn is None
+
+
+class TestSendAsync:
+    async def test_calls_aiosmtplib_send(self):
+        t = make_transport(username="u@example.com", password="pass")
+        msg = MagicMock()
+        with patch("fluxmail._transport.aiosmtplib.send", new_callable=AsyncMock) as mock_send:
+            await t.send_async(msg)
+        mock_send.assert_called_once_with(
+            msg,
+            hostname=HOST,
+            port=PORT,
+            use_tls=False,
+            start_tls=None,
+            username="u@example.com",
+            password="pass",
+            timeout=30,
+            tls_context=None,
+        )
+
+    async def test_use_ssl_maps_to_use_tls_true(self):
+        t = make_transport(use_ssl=True, username="u@example.com", password="pass")
+        with patch("fluxmail._transport.aiosmtplib.send", new_callable=AsyncMock) as mock_send:
+            await t.send_async(MagicMock())
+        _, kwargs = mock_send.call_args
+        assert kwargs["use_tls"] is True
+        assert kwargs["start_tls"] is None
+
+    async def test_use_tls_maps_to_start_tls_true(self):
+        t = make_transport(use_tls=True, username="u@example.com", password="pass")
+        with patch("fluxmail._transport.aiosmtplib.send", new_callable=AsyncMock) as mock_send:
+            await t.send_async(MagicMock())
+        _, kwargs = mock_send.call_args
+        assert kwargs["use_tls"] is False
+        assert kwargs["start_tls"] is True
+
+    async def test_no_credentials_passes_none(self):
+        t = make_transport()
+        with patch("fluxmail._transport.aiosmtplib.send", new_callable=AsyncMock) as mock_send:
+            await t.send_async(MagicMock())
+        _, kwargs = mock_send.call_args
+        assert kwargs["username"] is None
+        assert kwargs["password"] is None

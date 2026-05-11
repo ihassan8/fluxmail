@@ -2,6 +2,8 @@ import smtplib
 import ssl as _ssl
 from typing import Optional
 
+import aiosmtplib
+
 
 class _SMTPTransport:
     """Private SMTP connection manager — sync path only (async added separately)."""
@@ -66,3 +68,16 @@ class _SMTPTransport:
             except Exception:
                 pass
             self._conn = None
+
+    async def send_async(self, message) -> None:
+        await aiosmtplib.send(
+            message,
+            hostname=self._relay,
+            port=self._port,
+            use_tls=self._use_ssl,
+            start_tls=True if self._use_tls else None,
+            username=self._username if (self._username and self._password) else None,
+            password=self._password if (self._username and self._password) else None,
+            timeout=self._timeout,
+            tls_context=self._ssl_context,
+        )
