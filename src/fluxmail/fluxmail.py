@@ -229,14 +229,13 @@ class FluxMail:
     def is_smtp(self) -> bool:
         return self.object_type == EmailObject.SMTP
 
-    # type: ignore[index]
-    def is_outlook(self) -> bool:  # type: ignore[index]
+    def is_outlook(self) -> bool:
         return self.object_type == EmailObject.OUTLOOK
 
     def _handle_message_id(self) -> None:
-        if self.is_smtp():  # type: ignore[index]
+        if self.is_smtp():
             self.message["Message-ID"] = make_msgid()  # type: ignore[index]
-            self.logger.debug("Message-ID: %s", self.message["Message-ID"])
+            self.logger.debug("Message-ID: %s", self.message["Message-ID"])  # type: ignore[index]
 
     def create(
         self,
@@ -303,7 +302,7 @@ class FluxMail:
         self.subject = subject
         self.recipients = recipients
         self.body = body  # type: ignore[assignment]
-        self.plain_body = plain_body
+        self.plain_body = plain_body  # type: ignore[assignment]
         self.sender = sender  # type: ignore[assignment]
         self.cc = cc  # type: ignore[assignment]
         self.bcc = bcc  # type: ignore[assignment]
@@ -313,7 +312,7 @@ class FluxMail:
         self.in_reply_to = in_reply_to  # type: ignore[assignment]
         self.references = references  # type: ignore[assignment]
         self.priority = priority  # type: ignore[assignment]
-        self.unsubscribe_url = unsubscribe_url
+        self.unsubscribe_url = unsubscribe_url  # type: ignore[assignment]
         self.inline_images = inline_images
         self.inline_css = inline_css
 
@@ -507,17 +506,17 @@ class FluxMail:
             content_type = mime_type or "application/octet-stream"
             maintype, subtype = content_type.split("/", 1)
             # add_related() creates a multipart/related structure (RFC 2387) so
-            # clients render the image inline rather than as an attachment.  # type: ignore[union-attr]
-            self.message.add_related(
+            # clients render the image inline rather than as an attachment.
+            self.message.add_related(  # type: ignore[union-attr]
                 data,
                 maintype=maintype,
                 subtype=subtype,
                 filename=name,
                 cid=f"<{cid_name}>",
             )
-            self.logger.debug(  # type: ignore[union-attr]
+            self.logger.debug(
                 "Inline image attached: cid=%s (%s, %d bytes)",
-                cid_name,  # type: ignore[union-attr]
+                cid_name,
                 content_type,
                 len(data),
             )
@@ -527,12 +526,12 @@ class FluxMail:
         mime_type, _ = mimetypes.guess_type(file_path)
         content_type = mime_type or "application/octet-stream"
         if self.is_smtp():
-            maintype, subtype = content_type.split("/", 1)  # type: ignore[union-attr]
-            self.message.add_attachment(
+            maintype, subtype = content_type.split("/", 1)
+            self.message.add_attachment(  # type: ignore[union-attr]
                 data, maintype=maintype, subtype=subtype, filename=name
             )
-        elif self.is_outlook():  # type: ignore[return]
-            self.message.Attachments.Add(os.path.abspath(file_path))
+        elif self.is_outlook():
+            self.message.Attachments.Add(os.path.abspath(file_path))  # type: ignore[union-attr]
         self.logger.debug("Attached: %s (%s, %d bytes)", name, content_type, len(data))
 
     def _read_file(self, file: str) -> Tuple[bytes, str]:
@@ -546,12 +545,11 @@ class FluxMail:
             self.logger.error(msg)
             raise FluxMailException(msg, code="read_error") from e
 
-    # type: ignore[return]
-    def display(self) -> str:
+    def display(self) -> str:  # type: ignore[return]
         """Displays or returns an email preview.
 
         Returns
-        -------  # type: ignore[union-attr]
+        -------
         str
             Email preview string.
 
@@ -560,15 +558,15 @@ class FluxMail:
         FluxMailException
             If ``create()`` has not been called or display fails.
         """
-        if not self.is_created:  # type: ignore[return]
+        if not self.is_created:
             raise FluxMailException(
                 "Call create() before display().", code="not_created"
             )
         try:
             if self.is_smtp():
                 return f"Email Preview:\n{self.message}"
-            elif self.is_outlook():  # type: ignore[union-attr]
-                self.message.Display()
+            elif self.is_outlook():
+                self.message.Display()  # type: ignore[union-attr]
                 return "Outlook email displayed successfully."
         except FluxMailException:
             raise
@@ -577,8 +575,7 @@ class FluxMail:
             self.logger.error(msg)
             raise FluxMailException(msg, code="display_failed") from e
 
-    # type: ignore[return]
-    def send(self, dry_run: bool = False) -> str:
+    def send(self, dry_run: bool = False) -> str:  # type: ignore[return]
         """Sends or previews the email.
 
         Parameters
@@ -618,10 +615,10 @@ class FluxMail:
                         reraise=True,
                         before_sleep=lambda rs: self.logger.warning(
                             "Send attempt %d failed (%s) — retrying in %.1fs",
-                            rs.attempt_number,  # type: ignore[union-attr]
-                            rs.outcome.exception(),
+                            rs.attempt_number,
+                            rs.outcome.exception(),  # type: ignore[union-attr]
                             self.retry_delay,
-                        ),  # type: ignore[return]
+                        ),
                     ):
                         with attempt:
                             self._transport.send(self.message)
@@ -646,8 +643,7 @@ class FluxMail:
             self.logger.error(msg)
             raise FluxMailException(msg, code="send_failed") from e
 
-    # type: ignore[return]
-    async def send_async(self, dry_run: bool = False) -> str:
+    async def send_async(self, dry_run: bool = False) -> str:  # type: ignore[return]
         """Sends or previews the email asynchronously (SMTP only).
 
         Note: retry (max_retries) is not supported for async sends.
@@ -664,7 +660,7 @@ class FluxMail:
         self.logger.info(
             "Sending email async: subject=%r to=%r relay=%s",
             self.subject,
-            self.recipients,  # type: ignore[exit-return]
+            self.recipients,
             self.host.relay,
         )
         try:
@@ -697,14 +693,13 @@ class FluxMail:
             self._transport.open()
         return self
 
-    # type: ignore[exit-return]
-    def __exit__(self, exc_type, exc_val, exc_tb) -> bool:
+    def __exit__(self, exc_type, exc_val, exc_tb) -> None:
         if self._transport is not None:
             self._transport.close()
             self.logger.info(
                 "Persistent SMTP connection closed: %s:%d", self.host.relay, self.port
             )
-        return False
+        return
 
     def __repr__(self) -> str:
         return (

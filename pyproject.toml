@@ -22,6 +22,8 @@ classifiers = [
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
+    "Framework :: Django",
+    "Environment :: Asyncio",
     "Topic :: Software Development :: Libraries :: Python Modules",
     "Topic :: Communications :: Email",
     "Topic :: Internet",
@@ -43,6 +45,7 @@ issues = "https://github.com/vertex-ai-automations/fluxmail/issues/new"
 fluxmail = "fluxmail.fluxmail_cli:main"
 
 [project.optional-dependencies]
+django = ["Django>=3.2"]
 test = [
     "pytest>=7.4",
     "pytest-asyncio>=0.23",
@@ -67,6 +70,5 @@ timeout = 30
 
 
 
-[[tool.mypy.overrides]]
-module = "fluxmail.fluxmail"
-ignore_errors = true
+[tool.mypy]
+ignore_missing_imports = true

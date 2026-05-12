@@ -1,5 +1,11 @@
-from django.conf import settings
-from django.core.mail.backends.base import BaseEmailBackend
+try:
+    from django.conf import settings
+    from django.core.mail.backends.base import BaseEmailBackend
+except ImportError as _django_missing:
+    raise ImportError(
+        "fluxmail.backends.django requires Django. "
+        "Install it with: pip install fluxmail[django]"
+    ) from _django_missing
 
 from ..fluxmail import FluxMail
 

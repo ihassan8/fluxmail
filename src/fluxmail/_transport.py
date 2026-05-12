@@ -65,6 +65,7 @@ class _SMTPTransport:
         return conn
 
     def send(self, message) -> None:
+        """Send via persistent connection if open, otherwise open a transient one."""
         if self._conn is not None:
             self._logger.debug(
                 "Sending via persistent connection to %s:%d", self._relay, self._port
