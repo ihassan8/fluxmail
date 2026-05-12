@@ -686,3 +686,50 @@ class TestUnsubscribeHeader:
         )
         # SMTP instance — header should be set
         assert smtp_email.message["List-Unsubscribe"] is not None
+
+
+class TestInlineImages:
+    def test_inline_image_attaches_with_content_id(self, smtp_email, tmp_path):
+        img = tmp_path / "logo.png"
+        img.write_bytes(b"\x89PNG\r\n\x1a\n" + b"\x00" * 50)
+        smtp_email.create(
+            subject="Hi", recipients=["a@b.com"],
+            body='<img src="cid:logo">Hello', html_body=True,
+            inline_images={"logo": str(img)},
+        )
+        payload = smtp_email.message.get_payload()
+        content_ids = [
+            str(part.get("Content-ID", ""))
+            for part in (payload if isinstance(payload, list) else [smtp_email.message])
+        ]
+        assert any("logo" in cid for cid in content_ids)
+
+    def test_missing_inline_image_raises(self, smtp_email, tmp_path):
+        with pytest.raises(FluxMailException) as exc_info:
+            smtp_email.create(
+                subject="Hi", recipients=["a@b.com"],
+                body="<b>hi</b>", html_body=True,
+                inline_images={"logo": str(tmp_path / "missing.png")},
+            )
+        assert exc_info.value.code == "attachment_not_found"
+
+    def test_non_dict_inline_images_raises(self, smtp_email):
+        with pytest.raises(FluxMailException) as exc_info:
+            smtp_email.create(
+                subject="Hi", recipients=["a@b.com"], body="Hi",
+                inline_images=["logo.png"],
+            )
+        assert exc_info.value.code == "invalid_params"
+
+    def test_inline_images_outlook_raises(self, smtp_email):
+        with patch.object(FluxMail, "is_outlook", return_value=True), \
+             patch.object(FluxMail, "is_smtp", return_value=False):
+            smtp_email.create(subject="Hi", recipients=["a@b.com"], body="Hi")
+            smtp_email.inline_images = {"logo": "/fake/logo.png"}
+            with pytest.raises(FluxMailException) as exc_info:
+                smtp_email._attach_inline_images()
+        assert exc_info.value.code == "invalid_params"
+
+    def test_no_inline_images_by_default(self, smtp_email):
+        smtp_email.create(subject="Hi", recipients=["a@b.com"], body="Hello")
+        assert smtp_email.is_created  # no error

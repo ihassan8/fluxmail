@@ -6,7 +6,7 @@ import ssl
 import time
 from email.message import EmailMessage
 from email.utils import make_msgid
-from typing import List, Optional, Tuple, Union
+from typing import Dict, List, Optional, Tuple, Union
 
 # Windows-only dependency for Outlook
 if platform.system() == "Windows":
@@ -73,6 +73,7 @@ class FluxMail:
         "references",
         "priority",
         "unsubscribe_url",
+        "inline_images",
         "_transport",
     )
 
@@ -240,6 +241,7 @@ class FluxMail:
         references: Optional[List[str]] = None,
         priority: Optional[str] = None,
         unsubscribe_url: Optional[str] = None,
+        inline_images: Optional[Dict[str, str]] = None,
     ) -> "FluxMail":
         """Creates an email with the specified details.
 
@@ -298,6 +300,7 @@ class FluxMail:
         self.references = references
         self.priority = priority
         self.unsubscribe_url = unsubscribe_url
+        self.inline_images = inline_images
 
         self._validate_parameters()
         self._handle_message_id()
@@ -311,6 +314,7 @@ class FluxMail:
         self._handle_priority()
         self._set_content_type()
         self._attach_files()
+        self._attach_inline_images()
         self.is_created = True
         self.logger.info(
             "Email created: subject=%r to=%d cc=%d bcc=%d attachments=%d html=%s",
@@ -389,6 +393,11 @@ class FluxMail:
             raise FluxMailException("BCC must be a list.", code="invalid_params")
         if self.input_path and not isinstance(self.input_path, list):
             raise FluxMailException("Attachments must be a list.", code="invalid_params")
+        if self.inline_images is not None and not isinstance(self.inline_images, dict):
+            raise FluxMailException(
+                "inline_images must be a dict mapping cid_name to file_path.",
+                code="invalid_params",
+            )
         if self.priority and self.priority not in _PRIORITY_MAP:
             raise FluxMailException(
                 f"priority must be one of {list(_PRIORITY_MAP.keys())}, got '{self.priority}'",
@@ -441,6 +450,39 @@ class FluxMail:
                         code="attachment_not_found",
                     )
                 self._attach_file(file_path)
+
+    def _attach_inline_images(self) -> None:
+        if not self.inline_images:
+            return
+        if self.is_outlook():
+            raise FluxMailException(
+                "inline_images is not supported for Outlook.", code="invalid_params"
+            )
+        for cid_name, file_path in self.inline_images.items():
+            if not os.path.isfile(file_path):
+                raise FluxMailException(
+                    f"Inline image not found: {file_path}",
+                    code="attachment_not_found",
+                )
+            data, name = self._read_file(file_path)
+            mime_type, _ = mimetypes.guess_type(file_path)
+            content_type = mime_type or "application/octet-stream"
+            maintype, subtype = content_type.split("/", 1)
+            self.message.add_attachment(
+                data,
+                maintype=maintype,
+                subtype=subtype,
+                filename=name,
+                disposition="inline",
+            )
+            # Set Content-ID on the last payload part (compatible with all Python 3.8+)
+            payload = self.message.get_payload()
+            if isinstance(payload, list) and payload:
+                payload[-1]["Content-ID"] = f"<{cid_name}>"
+            self.logger.debug(
+                "Inline image attached: cid=%s (%s, %d bytes)",
+                cid_name, content_type, len(data),
+            )
 
     def _attach_file(self, file_path: str):
         data, name = self._read_file(file_path)
