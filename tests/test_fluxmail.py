@@ -627,3 +627,39 @@ class TestFromEnv:
         # Should raise platform error, NOT missing-host error
         assert "FLUXMAIL_HOST" not in str(exc_info.value)
         assert "Windows" in str(exc_info.value)
+
+
+class TestTestConnection:
+    def test_returns_diagnostics_dict(self, smtp_email):
+        mock_conn = MagicMock()
+        with patch.object(smtp_email._transport, "_make_connection", return_value=mock_conn):
+            result = smtp_email.test_connection()
+        assert result["ok"] is True
+        assert result["relay"] == smtp_email.host.relay
+        assert result["port"] == smtp_email.port
+        assert isinstance(result["latency_ms"], int)
+        assert result["latency_ms"] >= 0
+        mock_conn.quit.assert_called_once()
+
+    def test_quit_failure_does_not_mask_success(self, smtp_email):
+        mock_conn = MagicMock()
+        mock_conn.quit.side_effect = Exception("already closed")
+        with patch.object(smtp_email._transport, "_make_connection", return_value=mock_conn):
+            result = smtp_email.test_connection()  # must not raise
+        assert result["ok"] is True
+
+    def test_raises_connection_failed_on_error(self, smtp_email):
+        with patch.object(
+            smtp_email._transport, "_make_connection",
+            side_effect=OSError("connection refused")
+        ):
+            with pytest.raises(FluxMailException) as exc_info:
+                smtp_email.test_connection()
+        assert exc_info.value.code == "connection_failed"
+
+    @pytest.mark.skipif(sys.platform != "win32", reason="Outlook only on Windows")
+    def test_outlook_raises_outlook_no_connect(self):
+        e = FluxMail(object_type="outlook", host=EmailInstance(relay=""))
+        with pytest.raises(FluxMailException) as exc_info:
+            e.test_connection()
+        assert exc_info.value.code == "outlook_no_connect"

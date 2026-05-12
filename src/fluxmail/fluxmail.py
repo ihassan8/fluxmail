@@ -3,6 +3,7 @@ import mimetypes
 import os
 import platform
 import ssl
+import time
 from email.message import EmailMessage
 from email.utils import make_msgid
 from typing import List, Optional, Tuple, Union
@@ -629,3 +630,47 @@ class FluxMail:
             max_retries=int(os.environ.get("FLUXMAIL_MAX_RETRIES", "0")),
             retry_delay=float(os.environ.get("FLUXMAIL_RETRY_DELAY", "1.0")),
         )
+
+    def test_connection(self) -> dict:
+        """Test SMTP connectivity and authentication without sending email.
+
+        Returns
+        -------
+        dict
+            ``{"ok": True, "relay": str, "port": int, "latency_ms": int}``
+
+        Raises
+        ------
+        FluxMailException
+            ``code="outlook_no_connect"`` for Outlook instances.
+            ``code="connection_failed"`` if connection or auth fails.
+        """
+        if self.is_outlook():
+            raise FluxMailException(
+                "Outlook does not support connection testing.",
+                code="outlook_no_connect",
+            )
+        try:
+            start = time.monotonic()
+            conn = self._transport._make_connection()
+            latency_ms = int((time.monotonic() - start) * 1000)
+            try:
+                conn.quit()
+            except Exception:
+                pass
+            self.logger.info(
+                "Connection test OK: relay=%s port=%d latency=%dms",
+                self.host.relay, self.port, latency_ms,
+            )
+            return {
+                "ok": True,
+                "relay": self.host.relay,
+                "port": self.port,
+                "latency_ms": latency_ms,
+            }
+        except FluxMailException:
+            raise
+        except Exception as e:
+            msg = f"Connection test failed: {e}"
+            self.logger.error(msg)
+            raise FluxMailException(msg, code="connection_failed") from e
