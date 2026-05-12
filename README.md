@@ -9,7 +9,7 @@
 [![Python versions](https://img.shields.io/pypi/pyversions/fluxmail?color=2563eb&logo=python&logoColor=white)](https://pypi.org/project/fluxmail/)
 [![License: MIT](https://img.shields.io/badge/license-MIT-2563eb.svg)](https://github.com/vertex-ai-automations/fluxmail/blob/main/LICENSE.txt)
 [![Downloads](https://img.shields.io/pypi/dm/fluxmail?color=2563eb)](https://pypi.org/project/fluxmail/)
-[![CI](https://img.shields.io/github/actions/workflow/status/vertex-ai-automations/fluxmail/release.yml?branch=main&label=CI&logo=github)](https://github.com/vertex-ai-automations/fluxmail/actions)
+[![CI](https://img.shields.io/github/actions/workflow/status/vertex-ai-automations/fluxmail/ci.yml?branch=main&label=CI&logo=github)](https://github.com/vertex-ai-automations/fluxmail/actions/workflows/ci.yml)
 [![Docs](https://img.shields.io/badge/docs-online-2563eb?logo=readthedocs&logoColor=white)](https://vertex-ai-automations.github.io/fluxmail)
 
 <br/>
@@ -104,6 +104,20 @@ See [Configuration](https://vertex-ai-automations.github.io/fluxmail/getting-sta
 
 ---
 
+
+---
+
+## CI Pipeline
+
+Every push to `main` and every pull request runs automatically via [shared-workflows](https://github.com/vertex-ai-automations/shared-workflows):
+
+| Job | What it checks |
+|-----|----------------|
+| **Test** | pytest on Python 3.9–3.12 x Ubuntu + Windows |
+| **Lint** | `ruff check` + `ruff format --check` |
+| **Type Check** | `mypy src/` |
+| **Audit** | `pip-audit` — all dependencies scanned for known CVEs |
+| **Coverage** | `pytest-cov` — report posted to the Actions job summary |
 ## 👪 Contributing
 
 All contributions are welcome! Fork the repo, make your changes, and open a pull request.
