@@ -55,7 +55,7 @@ Classmethod. Reads the following environment variables and passes them to `FluxM
 
 **Outlook special case:** When `FLUXMAIL_TYPE=outlook`, `FLUXMAIL_HOST` is not required. The method passes `host=EmailInstance(relay="")` automatically.
 
-**Bool parsing helper** (private, reusable): `_parse_bool(value: str) -> bool` — returns `True` for `"true"`, `"1"`, `"yes"` (case-insensitive), `False` otherwise.
+**Bool parsing helper:** `_parse_bool(value: str) -> bool` — module-level function placed above the `FluxMail` class definition (not a method; `@classmethod` cannot call `self.` helpers). Returns `True` for `"true"`, `"1"`, `"yes"` (case-insensitive), `False` otherwise.
 
 ```python
 @classmethod
@@ -127,6 +127,8 @@ def _handle_unsubscribe(self) -> None:
         self.message["List-Unsubscribe-Post"] = "List-Unsubscribe=One-Click"
 ```
 
+**Outlook:** `unsubscribe_url` is silently ignored for Outlook instances (same rationale as `reply_to` — Outlook COM does not expose these headers). No error is raised.
+
 ---
 
 ### 1.4 Inline CID images
@@ -189,12 +191,13 @@ If `premailer.transform()` raises, the exception is caught and re-raised as `Flu
 
 New `__slots__` entry: `"inline_css"`
 
+Add `import premailer` to the **top-level imports** in `src/fluxmail/fluxmail.py` (not inside the function — `premailer` is a required dep and the project style puts all imports at the top of the file).
+
 `_set_content_type()` updated:
 ```python
 def _set_content_type(self):
     body = self.body
     if self.is_smtp() and self.html_body and self.inline_css:
-        import premailer
         try:
             body = premailer.transform(body)
         except Exception as e:
@@ -267,6 +270,11 @@ self.is_created = True
 **File:** `src/fluxmail/_transport.py`
 
 New async context manager that yields an authenticated `aiosmtplib.SMTP` instance for reuse across multiple sends.
+
+**Required import addition to `_transport.py`:**
+```python
+from contextlib import asynccontextmanager
+```
 
 **Parameter mapping (mirrors `send_async()`):**
 - `use_ssl=True` → `aiosmtplib.SMTP(use_tls=True)` (implicit TLS, port 465)
@@ -396,13 +404,15 @@ def send_messages(self, email_messages):
 
 ### 3.4 Connection lifecycle
 
-`open()` — creates a `FluxMail` instance from Django settings and opens a persistent SMTP connection. Returns `True` if a new connection was opened, `False` if already open (Django's expected convention for connection reuse tracking).
+**`__init__`** — creates `self._mailer` immediately from Django settings so it is always available regardless of whether `open()` has been called. `self._connection_open = False` tracks state.
 
-`close()` — closes the persistent connection. No-op if already closed.
+**`open()`** — calls `self._mailer.__enter__()` to upgrade to a persistent SMTP connection. Returns `True` if a new connection was opened, `False` if already open (Django's required convention for connection reuse tracking).
 
-When used outside a `with` block, `send_messages()` opens and closes a transient connection per call.
+**`close()`** — calls `self._mailer.__exit__(None, None, None)`. No-op if already closed.
 
-`fail_silently` — honours Django's `BaseEmailBackend` convention: when `True`, all exceptions in `send_messages()` are swallowed and 0 is returned.
+**`send_messages()`** — calls `self._mailer._transport.send(msg.message())` for each message. Because `_transport.send()` handles transient vs persistent connections internally (it opens a new connection if `_conn is None`), `send_messages()` works correctly whether `open()` was called or not.
+
+**`fail_silently`** — honours Django's `BaseEmailBackend` convention: when `True`, all exceptions in `send_messages()` are swallowed and `0` is returned.
 
 ---
 
