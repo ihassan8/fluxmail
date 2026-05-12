@@ -733,3 +733,37 @@ class TestInlineImages:
     def test_no_inline_images_by_default(self, smtp_email):
         smtp_email.create(subject="Hi", recipients=["a@b.com"], body="Hello")
         assert smtp_email.is_created  # no error
+
+
+class TestCSSInlining:
+    def test_css_inlined_when_html_true(self, smtp_email):
+        smtp_email.create(
+            subject="Hi", recipients=["a@b.com"],
+            body='<p style="color: red">Hello</p>',
+            html_body=True, inline_css=True,
+        )
+        assert smtp_email.is_created
+
+    def test_inline_css_ignored_when_not_html(self, smtp_email):
+        # inline_css=True with html_body=False must not raise
+        smtp_email.create(
+            subject="Hi", recipients=["a@b.com"],
+            body="Plain text", html_body=False, inline_css=True,
+        )
+        assert smtp_email.is_created
+
+    def test_premailer_failure_raises_css_inline_failed(self, smtp_email):
+        with patch("fluxmail.fluxmail.premailer.transform", side_effect=Exception("bad html")):
+            with pytest.raises(FluxMailException) as exc_info:
+                smtp_email.create(
+                    subject="Hi", recipients=["a@b.com"],
+                    body="<bad>", html_body=True, inline_css=True,
+                )
+        assert exc_info.value.code == "css_inline_failed"
+
+    def test_inline_css_false_by_default(self, smtp_email):
+        smtp_email.create(
+            subject="Hi", recipients=["a@b.com"],
+            body='<style>p{color:red}</style><p>Hi</p>', html_body=True,
+        )
+        assert smtp_email.is_created

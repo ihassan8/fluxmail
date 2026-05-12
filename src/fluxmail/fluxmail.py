@@ -8,6 +8,8 @@ from email.message import EmailMessage
 from email.utils import make_msgid
 from typing import Dict, List, Optional, Tuple, Union
 
+import premailer
+
 # Windows-only dependency for Outlook
 if platform.system() == "Windows":
     import win32com.client as win32
@@ -74,6 +76,7 @@ class FluxMail:
         "priority",
         "unsubscribe_url",
         "inline_images",
+        "inline_css",
         "_transport",
     )
 
@@ -242,6 +245,7 @@ class FluxMail:
         priority: Optional[str] = None,
         unsubscribe_url: Optional[str] = None,
         inline_images: Optional[Dict[str, str]] = None,
+        inline_css: bool = False,
     ) -> "FluxMail":
         """Creates an email with the specified details.
 
@@ -301,6 +305,7 @@ class FluxMail:
         self.priority = priority
         self.unsubscribe_url = unsubscribe_url
         self.inline_images = inline_images
+        self.inline_css = inline_css
 
         self._validate_parameters()
         self._handle_message_id()
@@ -427,12 +432,20 @@ class FluxMail:
 
     def _set_content_type(self):
         if self.is_smtp():
+            body = self.body
+            if self.html_body and self.inline_css:
+                try:
+                    body = premailer.transform(body)
+                except Exception as e:
+                    raise FluxMailException(
+                        f"CSS inlining failed: {e}", code="css_inline_failed"
+                    ) from e
             if self.html_body and self.plain_body:
                 self.message.set_content(self.plain_body, subtype="plain")
-                self.message.add_alternative(self.body, subtype="html")
+                self.message.add_alternative(body, subtype="html")
             else:
                 self.message.set_content(
-                    self.body, subtype="html" if self.html_body else "plain"
+                    body, subtype="html" if self.html_body else "plain"
                 )
         elif self.is_outlook():
             self.message.BodyFormat = 2 if self.html_body else 1
