@@ -34,6 +34,11 @@ _PRIORITY_MAP = {
 }
 
 
+def _parse_bool(value: str) -> bool:
+    """Parse an environment variable string as a boolean."""
+    return value.strip().lower() in ("true", "1", "yes")
+
+
 class FluxMail:
     """Automates email creation and sending using SMTP or Outlook."""
 
@@ -588,4 +593,39 @@ class FluxMail:
         return (
             f"FluxMail(object_type={self.object_type}, host={self.host}, "
             f"logger={self.logger}, log_level={self.log_level})"
+        )
+
+    @classmethod
+    def from_env(cls) -> "FluxMail":
+        """Create a ``FluxMail`` instance from environment variables.
+
+        Reads ``FLUXMAIL_TYPE``, ``FLUXMAIL_HOST``, ``FLUXMAIL_PORT``,
+        ``FLUXMAIL_USERNAME``, ``FLUXMAIL_PASSWORD``, ``FLUXMAIL_TLS``,
+        ``FLUXMAIL_SSL``, ``FLUXMAIL_TIMEOUT``, ``FLUXMAIL_MAX_RETRIES``,
+        ``FLUXMAIL_RETRY_DELAY``.
+
+        Raises
+        ------
+        FluxMailException
+            If ``FLUXMAIL_HOST`` is missing when ``FLUXMAIL_TYPE=smtp``.
+        """
+        object_type = os.environ.get("FLUXMAIL_TYPE", "smtp")
+        host_str = os.environ.get("FLUXMAIL_HOST", "")
+        if object_type.lower() == "smtp" and not host_str:
+            raise FluxMailException(
+                "FLUXMAIL_HOST is required when FLUXMAIL_TYPE=smtp",
+                code="invalid_config",
+            )
+        host = host_str if host_str else EmailInstance(relay="")
+        return cls(
+            object_type=object_type,
+            host=host,
+            port=int(os.environ.get("FLUXMAIL_PORT", "25")),
+            username=os.environ.get("FLUXMAIL_USERNAME"),
+            password=os.environ.get("FLUXMAIL_PASSWORD"),
+            use_tls=_parse_bool(os.environ.get("FLUXMAIL_TLS", "false")),
+            use_ssl=_parse_bool(os.environ.get("FLUXMAIL_SSL", "false")),
+            timeout=int(os.environ.get("FLUXMAIL_TIMEOUT", "30")),
+            max_retries=int(os.environ.get("FLUXMAIL_MAX_RETRIES", "0")),
+            retry_delay=float(os.environ.get("FLUXMAIL_RETRY_DELAY", "1.0")),
         )

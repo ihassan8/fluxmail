@@ -577,3 +577,53 @@ class TestRetry:
             with pytest.raises(FluxMailException):
                 e.send()
         assert call_count == 1
+
+
+class TestFromEnv:
+    def test_reads_smtp_config(self, monkeypatch):
+        monkeypatch.setenv("FLUXMAIL_HOST", "smtp.example.com")
+        monkeypatch.setenv("FLUXMAIL_USERNAME", "u@example.com")
+        monkeypatch.delenv("FLUXMAIL_TYPE", raising=False)
+        e = FluxMail.from_env()
+        assert e.host.relay == "smtp.example.com"
+        assert e.username == "u@example.com"
+        assert e.object_type == EmailObject.SMTP
+
+    def test_missing_host_raises_invalid_config(self, monkeypatch):
+        monkeypatch.setenv("FLUXMAIL_TYPE", "smtp")
+        monkeypatch.delenv("FLUXMAIL_HOST", raising=False)
+        with pytest.raises(FluxMailException) as exc_info:
+            FluxMail.from_env()
+        assert exc_info.value.code == "invalid_config"
+        assert "FLUXMAIL_HOST" in str(exc_info.value)
+
+    def test_tls_parsed_true(self, monkeypatch):
+        monkeypatch.setenv("FLUXMAIL_HOST", "smtp.example.com")
+        monkeypatch.setenv("FLUXMAIL_TLS", "true")
+        monkeypatch.delenv("FLUXMAIL_SSL", raising=False)
+        e = FluxMail.from_env()
+        assert e.use_tls is True
+
+    def test_tls_parsed_false(self, monkeypatch):
+        monkeypatch.setenv("FLUXMAIL_HOST", "smtp.example.com")
+        monkeypatch.setenv("FLUXMAIL_TLS", "false")
+        e = FluxMail.from_env()
+        assert e.use_tls is False
+
+    def test_custom_port_and_timeout(self, monkeypatch):
+        monkeypatch.setenv("FLUXMAIL_HOST", "smtp.example.com")
+        monkeypatch.setenv("FLUXMAIL_PORT", "587")
+        monkeypatch.setenv("FLUXMAIL_TIMEOUT", "60")
+        e = FluxMail.from_env()
+        assert e.port == 587
+        assert e.timeout == 60
+
+    @pytest.mark.skipif(sys.platform == "win32", reason="Outlook connects on Windows")
+    def test_outlook_type_no_host_required(self, monkeypatch):
+        monkeypatch.setenv("FLUXMAIL_TYPE", "outlook")
+        monkeypatch.delenv("FLUXMAIL_HOST", raising=False)
+        with pytest.raises(FluxMailException) as exc_info:
+            FluxMail.from_env()
+        # Should raise platform error, NOT missing-host error
+        assert "FLUXMAIL_HOST" not in str(exc_info.value)
+        assert "Windows" in str(exc_info.value)
