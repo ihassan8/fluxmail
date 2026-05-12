@@ -62,10 +62,12 @@ name: 🚢 Release
 
 on:
   push:
-    branches:
-      - main          # Docs deploy only
     tags:
       - "*.*.*"       # Publish only — bare SemVer e.g. 1.2.1
+  workflow_run:
+    workflows: ["CI"]
+    types: [completed]
+    branches: [main]  # Docs deploy — triggered after CI passes on main
   workflow_dispatch:  # Manual trigger — docs only
 
 jobs:
@@ -76,6 +78,9 @@ jobs:
   # ============================================================
   docs:
     name: 📚 Deploy Docs
+    if: |
+      (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success') ||
+      github.event_name == 'workflow_dispatch'
     uses: vertex-ai-automations/shared-workflows/.github/workflows/publish-zensical.yml@main
     permissions:
       contents: read
