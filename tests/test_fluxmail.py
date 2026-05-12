@@ -610,6 +610,18 @@ class TestFromEnv:
         e = FluxMail.from_env()
         assert e.use_tls is False
 
+    def test_tls_parsed_with_yes(self, monkeypatch):
+        monkeypatch.setenv("FLUXMAIL_HOST", "smtp.example.com")
+        monkeypatch.setenv("FLUXMAIL_TLS", "yes")
+        e = FluxMail.from_env()
+        assert e.use_tls is True
+
+    def test_tls_parsed_with_1(self, monkeypatch):
+        monkeypatch.setenv("FLUXMAIL_HOST", "smtp.example.com")
+        monkeypatch.setenv("FLUXMAIL_TLS", "1")
+        e = FluxMail.from_env()
+        assert e.use_tls is True
+
     def test_custom_port_and_timeout(self, monkeypatch):
         monkeypatch.setenv("FLUXMAIL_HOST", "smtp.example.com")
         monkeypatch.setenv("FLUXMAIL_PORT", "587")
@@ -756,14 +768,29 @@ class TestInlineImages:
         smtp_email.create(subject="Hi", recipients=["a@b.com"], body="Hello")
         assert smtp_email.is_created  # no error
 
+    def test_inline_image_uses_multipart_related_container(self, smtp_email, tmp_path):
+        # RFC 2387: inline images must live in multipart/related, not multipart/mixed
+        img = tmp_path / "logo.png"
+        img.write_bytes(b"\x89PNG\r\n\x1a\n" + b"\x00" * 50)
+        smtp_email.create(
+            subject="Hi", recipients=["a@b.com"],
+            body='<img src="cid:logo">Hello', html_body=True,
+            inline_images={"logo": str(img)},
+        )
+        assert smtp_email.message.get_content_type() == "multipart/related"
+
 
 class TestCSSInlining:
     def test_css_inlined_when_html_true(self, smtp_email):
-        smtp_email.create(
-            subject="Hi", recipients=["a@b.com"],
-            body='<p style="color: red">Hello</p>',
-            html_body=True, inline_css=True,
-        )
+        # Patch premailer.transform to avoid real lxml processing (which can
+        # trigger external entity resolution on macOS system libxml2)
+        with patch("fluxmail.fluxmail.premailer.transform", return_value="<p>styled</p>") as mock_t:
+            smtp_email.create(
+                subject="Hi", recipients=["a@b.com"],
+                body='<p style="color: red">Hello</p>',
+                html_body=True, inline_css=True,
+            )
+        mock_t.assert_called_once()
         assert smtp_email.is_created
 
     def test_inline_css_ignored_when_not_html(self, smtp_email):

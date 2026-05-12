@@ -103,3 +103,8 @@ class TestFluxMailBackend:
         assert backend._mailer.port == 587
         assert backend._mailer.use_tls is True
         assert backend._mailer.timeout == 30
+
+    def test_backends_package_export(self):
+        # fluxmail.backends.__init__ exports FluxMailBackend directly
+        from fluxmail.backends import FluxMailBackend as BackendFromPackage
+        assert BackendFromPackage is FluxMailBackend

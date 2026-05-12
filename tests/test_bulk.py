@@ -154,6 +154,14 @@ class TestSendBatchAsync:
             await BulkSender(mailer).send_batch_async([], progress=False, max_per_second=-1)
         assert exc_info.value.code == "invalid_config"
 
+    async def test_outlook_mailer_raises_invalid_config(self):
+        # send_batch_async() is SMTP-only — guard checked before any connection
+        mailer = FluxMail(object_type="smtp", host=HOST, username="u@example.com")
+        with patch.object(FluxMail, "is_smtp", return_value=False):
+            with pytest.raises(FluxMailException) as exc_info:
+                await BulkSender(mailer).send_batch_async([], progress=False)
+        assert exc_info.value.code == "invalid_config"
+
     async def test_on_error_callback_called(self):
         errors = []
         mock_smtp = AsyncMock()
