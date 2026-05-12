@@ -153,6 +153,9 @@ create(
     in_reply_to=None,
     references=None,
     priority=None,
+    unsubscribe_url=None,
+    inline_images=None,
+    inline_css=False,
 )
 ```
 
@@ -173,6 +176,9 @@ create(
 | `in_reply_to` | `str \| None` | `None` | `In-Reply-To` header for threading |
 | `references` | `List[str] \| None` | `None` | `References` header for threading |
 | `priority` | `str \| None` | `None` | `"high"`, `"normal"`, or `"low"` |
+| `unsubscribe_url` | `str \| None` | `None` | HTTPS URL added as `List-Unsubscribe` + `List-Unsubscribe-Post` headers (RFC 8058, SMTP only) |
+| `inline_images` | `Dict[str, str] \| None` | `None` | Map of `cid_name → file_path` for inline images (requires `html_body=True`, SMTP only) |
+| `inline_css` | `bool` | `False` | Run `premailer.transform()` on the HTML body to inline CSS rules (silently skipped when `html_body=False`) |
 
 === "Plain text"
 
@@ -415,6 +421,54 @@ email.is_outlook() # False
 
 ---
 
+### `from_env()`
+
+Create a `FluxMail` instance from `FLUXMAIL_*` environment variables.
+
+```python
+@classmethod
+from_env() -> FluxMail
+```
+
+Reads `FLUXMAIL_TYPE`, `FLUXMAIL_HOST`, `FLUXMAIL_PORT`, `FLUXMAIL_USERNAME`,
+`FLUXMAIL_PASSWORD`, `FLUXMAIL_TLS`, `FLUXMAIL_SSL`, `FLUXMAIL_TIMEOUT`,
+`FLUXMAIL_MAX_RETRIES`, `FLUXMAIL_RETRY_DELAY`. See the
+[configuration guide](../getting-started/configuration.md#from_env-factory) for
+the full variable reference.
+
+```python
+mailer = FluxMail.from_env()
+```
+
+Raises `FluxMailException(code="invalid_config")` when `FLUXMAIL_HOST` is missing
+and `FLUXMAIL_TYPE=smtp`.
+
+---
+
+### `test_connection()`
+
+Open, authenticate, and immediately close an SMTP connection — without sending
+any email. Use for startup health checks and debugging credentials.
+
+```python
+test_connection() -> dict
+```
+
+**Returns** `{"ok": True, "relay": str, "port": int, "latency_ms": int}` on success.
+
+**Raises** `FluxMailException(code="connection_failed")` on network or auth failure;
+`FluxMailException(code="outlook_no_connect")` for Outlook instances.
+
+```python
+try:
+    info = mailer.test_connection()
+    print(f"Connected in {info['latency_ms']}ms")
+except FluxMailException as e:
+    print(f"Failed: {e}")   # e.code == "connection_failed"
+```
+
+---
+
 ### Context manager — connection reuse
 
 Use `FluxMail` as a context manager to hold one SMTP connection open across multiple sends.
@@ -616,6 +670,104 @@ send_batch(
     ```python
     result = BulkSender(mailer).send_batch(messages, progress=False)
     ```
+
+---
+
+### `send_batch_async()`
+
+Async equivalent of `send_batch()`. Opens one persistent async SMTP connection
+for the entire batch using `aiosmtplib`.
+
+```python
+await send_batch_async(
+    messages,
+    *,
+    on_success=None,
+    on_error=None,
+    progress=True,
+    max_per_second=0,
+) -> dict
+```
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `messages` | `list[dict]` | — | Each dict is unpacked as `**kwargs` into `FluxMail.create()` |
+| `on_success` | `Callable[[int, str], None] \| None` | `None` | Called with `(index, result_string)` after each successful send |
+| `on_error` | `Callable[[int, FluxMailException], None] \| None` | `None` | Called with `(index, exception)` after each failed send |
+| `progress` | `bool` | `True` | Show a Rich progress bar in the terminal |
+| `max_per_second` | `float` | `0` | Maximum sends per second; `0` disables rate limiting. Negative values raise `FluxMailException`. |
+
+Returns the same `{"sent", "failed", "total", "errors"}` dict as `send_batch()`.
+
+=== "Basic async batch"
+
+    ```python
+    import asyncio
+    from fluxmail import FluxMail, BulkSender
+
+    async def main():
+        mailer = FluxMail.from_env()
+        result = await BulkSender(mailer).send_batch_async(
+            messages, progress=False
+        )
+        print(result)
+
+    asyncio.run(main())
+    ```
+
+=== "With rate limiting"
+
+    ```python
+    # SendGrid allows ~100 messages/s; SES ~14/s
+    result = await BulkSender(mailer).send_batch_async(
+        messages,
+        max_per_second=14,
+        progress=False,
+    )
+    ```
+
+---
+
+## `FluxMailBackend` (Django)
+
+Drop-in `EMAIL_BACKEND` for Django. Reads Django's standard `EMAIL_*` settings
+and delegates send to FluxMail's SMTP transport.
+
+```python
+# settings.py
+EMAIL_BACKEND = "fluxmail.backends.django.FluxMailBackend"
+EMAIL_HOST = "smtp.gmail.com"
+EMAIL_PORT = 587
+EMAIL_HOST_USER = "me@gmail.com"
+EMAIL_HOST_PASSWORD = "secret"
+EMAIL_USE_TLS = True
+EMAIL_TIMEOUT = 30
+
+# Optional
+EMAIL_FLUXMAIL_MAX_RETRIES = 3
+EMAIL_FLUXMAIL_RETRY_DELAY = 1.0
+```
+
+| Django setting | FluxMail param | Default |
+|---|---|---|
+| `EMAIL_HOST` | `host` | `"localhost"` |
+| `EMAIL_PORT` | `port` | `25` |
+| `EMAIL_HOST_USER` | `username` | `None` |
+| `EMAIL_HOST_PASSWORD` | `password` | `None` |
+| `EMAIL_USE_TLS` | `use_tls` | `False` |
+| `EMAIL_USE_SSL` | `use_ssl` | `False` |
+| `EMAIL_TIMEOUT` | `timeout` | `30` |
+| `EMAIL_FLUXMAIL_MAX_RETRIES` | `max_retries` | `0` |
+| `EMAIL_FLUXMAIL_RETRY_DELAY` | `retry_delay` | `1.0` |
+
+Once configured, all standard Django email functions (`send_mail`, `EmailMessage`,
+`EmailMultiAlternatives`) route through FluxMail automatically. Django's own MIME
+builder handles attachments and multipart — no re-implementation.
+
+!!! note "Thread safety"
+    A single `FluxMailBackend` instance uses one shared `FluxMail` object. Do not
+    use the same backend instance concurrently from multiple threads without
+    external synchronisation.
 
 ---
 

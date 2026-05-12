@@ -27,6 +27,36 @@ email = FluxMail(
 )
 ```
 
+## `from_env()` factory
+
+For fully environment-driven configuration, `FluxMail.from_env()` reads the
+complete set of connection settings from `FLUXMAIL_*` environment variables.
+Ideal for containers, Heroku, Lambda, and any twelve-factor app:
+
+```bash
+# .env or deployment secrets
+FLUXMAIL_HOST=smtp.gmail.com
+FLUXMAIL_PORT=587
+FLUXMAIL_TLS=true
+FLUXMAIL_USERNAME=me@gmail.com
+FLUXMAIL_PASSWORD=secret
+FLUXMAIL_TIMEOUT=15
+FLUXMAIL_MAX_RETRIES=3
+FLUXMAIL_RETRY_DELAY=2.0
+```
+
+```python
+from fluxmail import FluxMail
+
+# One line — no hardcoded connection params
+mailer = FluxMail.from_env()
+mailer.create(subject="Hi", recipients=["user@example.com"], body="Hello").send()
+```
+
+All env vars have sensible defaults. `FLUXMAIL_HOST` is the only required variable
+when `FLUXMAIL_TYPE=smtp` (the default). `FLUXMAIL_TLS` and `FLUXMAIL_SSL` accept
+`true`, `1`, or `yes` (case-insensitive).
+
 ## Host Formats
 
 `host` accepts three forms:

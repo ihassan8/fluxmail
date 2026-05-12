@@ -141,6 +141,75 @@ email.create(
 )
 ```
 
+## List-Unsubscribe header
+
+Gmail and Yahoo require a `List-Unsubscribe` header for bulk senders (policy
+effective February 2024). Pass `unsubscribe_url=` on `create()` — FluxMail adds
+both the `List-Unsubscribe` and `List-Unsubscribe-Post` headers required for
+RFC 8058 one-click unsubscribe. The URL must use `https://`:
+
+```python
+email.create(
+    subject="Monthly Newsletter",
+    recipients=["subscriber@example.com"],
+    body="...",
+    unsubscribe_url="https://myapp.com/unsubscribe?token=abc123",
+)
+```
+
+This generates:
+```
+List-Unsubscribe: <https://myapp.com/unsubscribe?token=abc123>
+List-Unsubscribe-Post: List-Unsubscribe=One-Click
+```
+
+## Inline images (CID attachments)
+
+Embed images directly in HTML email bodies using Content-ID references.
+`inline_images` maps a CID name to a file path; the body references them
+as `cid:<name>`. Requires `html_body=True`.
+
+```python
+email.create(
+    subject="Welcome to Acme",
+    recipients=["user@example.com"],
+    body="""
+        <h1><img src="cid:logo" alt="Acme"> Welcome!</h1>
+        <p>Thanks for joining us.</p>
+    """,
+    html_body=True,
+    inline_images={
+        "logo": "/path/to/acme-logo.png",
+    },
+)
+```
+
+The images are attached with `Content-Disposition: inline` inside a
+`multipart/related` structure (RFC 2387), which major clients render
+inline rather than as attachments.
+
+## CSS inlining
+
+Most email clients (Outlook desktop, older Gmail) strip `<style>` tags.
+Pass `inline_css=True` to automatically inline all CSS rules into element
+`style` attributes before sending, via [premailer](https://github.com/peterbe/premailer):
+
+```python
+email.create(
+    subject="Styled newsletter",
+    recipients=["user@example.com"],
+    body="""
+        <style>h1 { color: #2563eb; } p { font-size: 14px; }</style>
+        <h1>Hello</h1>
+        <p>This email renders correctly everywhere.</p>
+    """,
+    html_body=True,
+    inline_css=True,
+)
+```
+
+`inline_css=True` is silently ignored when `html_body=False` (no-op on plain text).
+
 ## Connection Reuse
 
 Use `FluxMail` as a context manager to hold one SMTP connection open across
@@ -152,6 +221,39 @@ with FluxMail(object_type="smtp", host="smtp.gmail.com", port=587, use_tls=True,
     for recipient in recipients:
         mailer.create(subject="Hi", recipients=[recipient], body="Hello").send()
 ```
+
+## Factory from environment variables
+
+`from_env()` reads all connection settings from `FLUXMAIL_*` environment variables,
+removing boilerplate from every deployment context (Docker, CI/CD, serverless, Heroku):
+
+```python
+import os
+from fluxmail import FluxMail
+
+# Set once in your environment / .env file / secret manager:
+# FLUXMAIL_HOST=smtp.gmail.com
+# FLUXMAIL_PORT=587
+# FLUXMAIL_TLS=true
+# FLUXMAIL_USERNAME=me@gmail.com
+# FLUXMAIL_PASSWORD=secret
+
+mailer = FluxMail.from_env()
+mailer.create(subject="Hello", recipients=["user@example.com"], body="Hi!").send()
+```
+
+| Env var | Default | Notes |
+|---|---|---|
+| `FLUXMAIL_TYPE` | `smtp` | `smtp` or `outlook` |
+| `FLUXMAIL_HOST` | — | Required when type is `smtp` |
+| `FLUXMAIL_PORT` | `25` | |
+| `FLUXMAIL_USERNAME` | — | Same var read by the CLI |
+| `FLUXMAIL_PASSWORD` | — | Same var read by the CLI |
+| `FLUXMAIL_TLS` | `false` | `true`/`1`/`yes` → `True` |
+| `FLUXMAIL_SSL` | `false` | Implicit TLS (port 465) |
+| `FLUXMAIL_TIMEOUT` | `30` | Seconds |
+| `FLUXMAIL_MAX_RETRIES` | `0` | |
+| `FLUXMAIL_RETRY_DELAY` | `1.0` | Seconds |
 
 ## Implicit TLS (port 465)
 
@@ -190,6 +292,21 @@ FluxMail(
 
 After all retries are exhausted, `FluxMailException` is raised with the original
 error preserved via exception chaining.
+
+## Connection health check
+
+`test_connection()` opens an SMTP connection, authenticates, and returns a
+diagnostics dict — without sending any email. Use it in application startup,
+health endpoints, or to diagnose credential issues before going to production:
+
+```python
+try:
+    result = mailer.test_connection()
+    print(result)
+    # {"ok": True, "relay": "smtp.gmail.com", "port": 587, "latency_ms": 43}
+except FluxMailException as e:
+    print(f"SMTP unreachable: {e}")  # e.code == "connection_failed"
+```
 
 ## Async Send
 
@@ -361,6 +478,90 @@ messages = [
 
 BulkSender(mailer).send_batch(messages)
 ```
+
+### Async bulk sending
+
+`send_batch_async()` is the async equivalent — it holds one persistent async SMTP
+connection for the entire batch. Add `max_per_second` to respect ESP rate limits:
+
+```python
+import asyncio
+import os
+from fluxmail import FluxMail, BulkSender
+
+mailer = FluxMail(
+    object_type="smtp",
+    host="smtp.sendgrid.net",
+    port=587,
+    use_tls=True,
+    username="apikey",
+    password=os.environ["SENDGRID_API_KEY"],
+    sender="noreply@myapp.com",
+)
+
+messages = [
+    {"subject": f"Hi {name}", "recipients": [email], "body": f"Hello {name}!"}
+    for name, email in subscribers
+]
+
+async def send():
+    result = await BulkSender(mailer).send_batch_async(
+        messages,
+        max_per_second=14,  # SES limit; 0 = no throttle (default)
+        progress=False,
+    )
+    print(f"{result['sent']} sent, {result['failed']} failed")
+
+asyncio.run(send())
+```
+
+## Django integration
+
+Use FluxMail as a drop-in replacement for Django's email backend by setting
+`EMAIL_BACKEND` in your Django settings:
+
+```python
+# settings.py
+EMAIL_BACKEND = "fluxmail.backends.django.FluxMailBackend"
+EMAIL_HOST = "smtp.gmail.com"
+EMAIL_PORT = 587
+EMAIL_HOST_USER = "me@gmail.com"
+EMAIL_HOST_PASSWORD = "secret"
+EMAIL_USE_TLS = True
+EMAIL_TIMEOUT = 30
+
+# Optional FluxMail-specific settings
+EMAIL_FLUXMAIL_MAX_RETRIES = 3
+EMAIL_FLUXMAIL_RETRY_DELAY = 1.0
+```
+
+With this in place, all of Django's standard email functions work through FluxMail:
+
+```python
+from django.core.mail import send_mail, send_mass_mail, EmailMultiAlternatives
+
+# Plain send_mail
+send_mail("Subject", "Body", "from@example.com", ["to@example.com"])
+
+# HTML email via EmailMultiAlternatives
+msg = EmailMultiAlternatives(
+    subject="Newsletter",
+    body="Plain text version",
+    from_email="news@example.com",
+    to=["user@example.com"],
+)
+msg.attach_alternative("<h1>HTML version</h1>", "text/html")
+msg.send()
+```
+
+The backend reads Django's standard `EMAIL_*` settings and delegates message
+construction to Django's own MIME builder, so attachments, multipart, and all
+Django email features work unchanged.
+
+!!! note "Thread safety"
+    The backend uses a single `FluxMail` instance per backend object. Do not
+    share a single backend instance across concurrent threads without external
+    synchronisation.
 
 ## Outlook
 
