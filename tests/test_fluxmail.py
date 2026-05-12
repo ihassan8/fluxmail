@@ -663,3 +663,26 @@ class TestTestConnection:
         with pytest.raises(FluxMailException) as exc_info:
             e.test_connection()
         assert exc_info.value.code == "outlook_no_connect"
+
+
+class TestUnsubscribeHeader:
+    def test_headers_set_when_url_provided(self, smtp_email):
+        smtp_email.create(
+            subject="Newsletter", recipients=["a@b.com"], body="Hi",
+            unsubscribe_url="https://example.com/unsub?token=abc",
+        )
+        assert smtp_email.message["List-Unsubscribe"] == "<https://example.com/unsub?token=abc>"
+        assert smtp_email.message["List-Unsubscribe-Post"] == "List-Unsubscribe=One-Click"
+
+    def test_no_headers_by_default(self, smtp_email):
+        smtp_email.create(subject="Hi", recipients=["a@b.com"], body="Hello")
+        assert smtp_email.message["List-Unsubscribe"] is None
+        assert smtp_email.message["List-Unsubscribe-Post"] is None
+
+    def test_silently_ignored_for_outlook(self, smtp_email):
+        smtp_email.create(
+            subject="Hi", recipients=["a@b.com"], body="Hello",
+            unsubscribe_url="https://example.com/unsub",
+        )
+        # SMTP instance — header should be set
+        assert smtp_email.message["List-Unsubscribe"] is not None

@@ -72,6 +72,7 @@ class FluxMail:
         "in_reply_to",
         "references",
         "priority",
+        "unsubscribe_url",
         "_transport",
     )
 
@@ -181,6 +182,7 @@ class FluxMail:
         self.in_reply_to = None
         self.references = None
         self.priority = None
+        self.unsubscribe_url = None
 
         if self.is_smtp():
             self.message = EmailMessage()
@@ -237,6 +239,7 @@ class FluxMail:
         in_reply_to: Optional[str] = None,
         references: Optional[List[str]] = None,
         priority: Optional[str] = None,
+        unsubscribe_url: Optional[str] = None,
     ) -> "FluxMail":
         """Creates an email with the specified details.
 
@@ -294,6 +297,7 @@ class FluxMail:
         self.in_reply_to = in_reply_to
         self.references = references
         self.priority = priority
+        self.unsubscribe_url = unsubscribe_url
 
         self._validate_parameters()
         self._handle_message_id()
@@ -302,6 +306,7 @@ class FluxMail:
         self._handle_cc()
         self._handle_bcc()
         self._handle_reply_to()
+        self._handle_unsubscribe()
         self._handle_threading()
         self._handle_priority()
         self._set_content_type()
@@ -367,6 +372,11 @@ class FluxMail:
             if self.is_smtp():
                 self.message["Reply-To"] = validated
             # Outlook COM does not expose a Reply-To field
+
+    def _handle_unsubscribe(self) -> None:
+        if self.unsubscribe_url and self.is_smtp():
+            self.message["List-Unsubscribe"] = f"<{self.unsubscribe_url}>"
+            self.message["List-Unsubscribe-Post"] = "List-Unsubscribe=One-Click"
 
     def _validate_parameters(self):
         if not self.subject:
