@@ -8,7 +8,10 @@ from email.message import EmailMessage
 from email.utils import make_msgid
 from typing import Dict, List, Optional, Tuple, Union
 
-import premailer
+# premailer is imported lazily inside _set_content_type() — importing it at
+# module level causes lxml (premailer's backend) to invoke the system libxml2
+# which attempts to resolve external XML entity DTDs on macOS, hanging at
+# import time with no timeout.
 
 # Windows-only dependency for Outlook
 if platform.system() == "Windows":
@@ -444,6 +447,7 @@ class FluxMail:
             body = self.body
             if self.html_body and self.inline_css:
                 try:
+                    import premailer  # lazy — avoids lxml import-time DTD fetch on macOS
                     body = premailer.transform(body)
                 except Exception as e:
                     raise FluxMailException(

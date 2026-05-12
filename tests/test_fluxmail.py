@@ -784,7 +784,7 @@ class TestCSSInlining:
     def test_css_inlined_when_html_true(self, smtp_email):
         # Patch premailer.transform to avoid real lxml processing (which can
         # trigger external entity resolution on macOS system libxml2)
-        with patch("fluxmail.fluxmail.premailer.transform", return_value="<p>styled</p>") as mock_t:
+        with patch("premailer.transform", return_value="<p>styled</p>") as mock_t:
             smtp_email.create(
                 subject="Hi", recipients=["a@b.com"],
                 body='<p style="color: red">Hello</p>',
@@ -802,7 +802,7 @@ class TestCSSInlining:
         assert smtp_email.is_created
 
     def test_premailer_failure_raises_css_inline_failed(self, smtp_email):
-        with patch("fluxmail.fluxmail.premailer.transform", side_effect=Exception("bad html")):
+        with patch("premailer.transform", side_effect=Exception("bad html")):
             with pytest.raises(FluxMailException) as exc_info:
                 smtp_email.create(
                     subject="Hi", recipients=["a@b.com"],
