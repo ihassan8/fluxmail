@@ -26,7 +26,7 @@ jobs:
     name: Type Check
     uses: vertex-ai-automations/shared-workflows/.github/workflows/typecheck.yml@main
     with:
-      install-command: 'pip install -e ".[dev]"'
+      install-command: 'pip install -e ".[test]" mypy'
 
   audit:
     name: Audit

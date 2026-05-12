@@ -15,10 +15,14 @@ _NULL_LOGGER.addHandler(logging.NullHandler())
 
 def make_transport(**kwargs):
     defaults = dict(
-        relay=HOST, port=PORT,
-        use_ssl=False, use_tls=False,
-        ssl_context=None, timeout=30,
-        username=None, password=None,
+        relay=HOST,
+        port=PORT,
+        use_ssl=False,
+        use_tls=False,
+        ssl_context=None,
+        timeout=30,
+        username=None,
+        password=None,
         logger=_NULL_LOGGER,
     )
     defaults.update(kwargs)
@@ -77,6 +81,7 @@ class TestMakeConnection:
 
     def test_ssl_context_passed_to_smtp_ssl(self):
         import ssl
+
         ctx = ssl.create_default_context()
         t = make_transport(use_ssl=True, ssl_context=ctx)
         with patch("fluxmail._transport.smtplib.SMTP_SSL") as mock_cls:
@@ -166,7 +171,9 @@ class TestSendAsync:
     async def test_calls_aiosmtplib_send(self):
         t = make_transport(username="u@example.com", password="pass")
         msg = MagicMock()
-        with patch("fluxmail._transport.aiosmtplib.send", new_callable=AsyncMock) as mock_send:
+        with patch(
+            "fluxmail._transport.aiosmtplib.send", new_callable=AsyncMock
+        ) as mock_send:
             await t.send_async(msg)
         mock_send.assert_called_once_with(
             msg,
@@ -182,7 +189,9 @@ class TestSendAsync:
 
     async def test_use_ssl_maps_to_use_tls_true(self):
         t = make_transport(use_ssl=True, username="u@example.com", password="pass")
-        with patch("fluxmail._transport.aiosmtplib.send", new_callable=AsyncMock) as mock_send:
+        with patch(
+            "fluxmail._transport.aiosmtplib.send", new_callable=AsyncMock
+        ) as mock_send:
             await t.send_async(MagicMock())
         _, kwargs = mock_send.call_args
         assert kwargs["use_tls"] is True
@@ -190,7 +199,9 @@ class TestSendAsync:
 
     async def test_use_tls_maps_to_start_tls_true(self):
         t = make_transport(use_tls=True, username="u@example.com", password="pass")
-        with patch("fluxmail._transport.aiosmtplib.send", new_callable=AsyncMock) as mock_send:
+        with patch(
+            "fluxmail._transport.aiosmtplib.send", new_callable=AsyncMock
+        ) as mock_send:
             await t.send_async(MagicMock())
         _, kwargs = mock_send.call_args
         assert kwargs["use_tls"] is False
@@ -198,7 +209,9 @@ class TestSendAsync:
 
     async def test_no_credentials_passes_none(self):
         t = make_transport()
-        with patch("fluxmail._transport.aiosmtplib.send", new_callable=AsyncMock) as mock_send:
+        with patch(
+            "fluxmail._transport.aiosmtplib.send", new_callable=AsyncMock
+        ) as mock_send:
             await t.send_async(MagicMock())
         _, kwargs = mock_send.call_args
         assert kwargs["username"] is None
@@ -211,7 +224,9 @@ class TestAsyncConnection:
         mock_smtp = AsyncMock()
         mock_smtp.__aenter__ = AsyncMock(return_value=mock_smtp)
         mock_smtp.__aexit__ = AsyncMock(return_value=False)
-        with patch("fluxmail._transport.aiosmtplib.SMTP", MagicMock(return_value=mock_smtp)):
+        with patch(
+            "fluxmail._transport.aiosmtplib.SMTP", MagicMock(return_value=mock_smtp)
+        ):
             async with t.async_connection() as smtp:
                 assert smtp is mock_smtp
         mock_smtp.login.assert_called_once_with("u@example.com", "pass")
@@ -221,8 +236,10 @@ class TestAsyncConnection:
         mock_smtp = AsyncMock()
         mock_smtp.__aenter__ = AsyncMock(return_value=mock_smtp)
         mock_smtp.__aexit__ = AsyncMock(return_value=False)
-        with patch("fluxmail._transport.aiosmtplib.SMTP", MagicMock(return_value=mock_smtp)):
-            async with t.async_connection() as smtp:
+        with patch(
+            "fluxmail._transport.aiosmtplib.SMTP", MagicMock(return_value=mock_smtp)
+        ):
+            async with t.async_connection() as _:
                 pass
         mock_smtp.starttls.assert_called_once()
         mock_smtp.login.assert_called_once()
@@ -232,8 +249,10 @@ class TestAsyncConnection:
         mock_smtp = AsyncMock()
         mock_smtp.__aenter__ = AsyncMock(return_value=mock_smtp)
         mock_smtp.__aexit__ = AsyncMock(return_value=False)
-        with patch("fluxmail._transport.aiosmtplib.SMTP", MagicMock(return_value=mock_smtp)):
-            async with t.async_connection() as smtp:
+        with patch(
+            "fluxmail._transport.aiosmtplib.SMTP", MagicMock(return_value=mock_smtp)
+        ):
+            async with t.async_connection() as _:
                 pass
         mock_smtp.starttls.assert_not_called()
 
@@ -242,7 +261,9 @@ class TestAsyncConnection:
         mock_smtp = AsyncMock()
         mock_smtp.__aenter__ = AsyncMock(return_value=mock_smtp)
         mock_smtp.__aexit__ = AsyncMock(return_value=False)
-        with patch("fluxmail._transport.aiosmtplib.SMTP", MagicMock(return_value=mock_smtp)):
-            async with t.async_connection() as smtp:
+        with patch(
+            "fluxmail._transport.aiosmtplib.SMTP", MagicMock(return_value=mock_smtp)
+        ):
+            async with t.async_connection() as _:
                 pass
         mock_smtp.login.assert_not_called()
