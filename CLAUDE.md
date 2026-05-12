@@ -91,11 +91,13 @@ Config is in `zensical.toml` (project root). Also install the library itself (`p
 
 | File | Role |
 |------|------|
-| `fluxmail.py` | `FluxMail` class — email creation, send, send_async, retry |
-| `_transport.py` | `_SMTPTransport` — all SMTP connection logic (sync + async, SSL variants) |
+| `fluxmail.py` | `FluxMail` class — email creation, send, send_async, retry, from_env, test_connection |
+| `_transport.py` | `_SMTPTransport` — all SMTP connection logic (sync + async, SSL variants, async_connection) |
 | `utils.py` | `EmailObject`, `EmailInstance`, `FluxMailException`, `validate_email`, `str_to_enum` |
 | `template.py` | `EmailTemplate` — Jinja2 body renderer |
-| `bulk.py` | `BulkSender` — batch sender with Rich progress bar |
+| `bulk.py` | `BulkSender` — batch sender with Rich progress bar; sync and async |
+| `backends/__init__.py` | Package marker (empty) |
+| `backends/django.py` | `FluxMailBackend` — Django `EMAIL_BACKEND` drop-in |
 | `fluxmail_cli.py` | Typer-based CLI; calls `FluxMail` |
 | `__init__.py` | Public exports: `FluxMail`, `FluxMailException`, `EmailInstance`, `EmailObject`, `EmailTemplate`, `BulkSender`, `__version__` |
 | `__main__.py` | `python -m fluxmail` entry point |
@@ -125,6 +127,13 @@ Config is in `zensical.toml` (project root). Also install the library itself (`p
 - `send_async()` uses `aiosmtplib` and accepts the same TLS/timeout params as `send()`.
 - `EmailTemplate(template_str)` renders Jinja2 templates; use the result as `body=` in `create()`.
 - `BulkSender(mailer).send_batch(messages)` sends a list-of-dicts batch over one connection.
+- `FluxMail.from_env()` reads `FLUXMAIL_HOST`, `FLUXMAIL_PORT`, `FLUXMAIL_USERNAME`, `FLUXMAIL_PASSWORD`, `FLUXMAIL_TLS`, `FLUXMAIL_SSL`, `FLUXMAIL_TIMEOUT`, `FLUXMAIL_MAX_RETRIES`, `FLUXMAIL_RETRY_DELAY` from env.
+- `test_connection()` opens, authenticates, and immediately closes an SMTP connection; returns `{"ok", "relay", "port", "latency_ms"}`.
+- `create(unsubscribe_url=)` adds RFC 8058 `List-Unsubscribe` + `List-Unsubscribe-Post` headers (SMTP only; silently ignored for Outlook).
+- `create(inline_images={"cid": "/path"})` attaches inline images with `Content-ID: <cid>` for use as `<img src="cid:cid">` in HTML (SMTP only).
+- `create(inline_css=True)` runs `premailer.transform()` on the HTML body before sending; silently skipped when `html_body=False`.
+- `BulkSender.send_batch_async(messages, max_per_second=N)` uses `_SMTPTransport.async_connection()` to hold one async SMTP connection for the whole batch; `max_per_second` inserts `asyncio.sleep(1/N)` after each send.
+- Django backend (`fluxmail.backends.django.FluxMailBackend`) reads standard `EMAIL_*` settings; `send_messages()` uses `django_msg.message()` directly to preserve Django's MIME logic.
 
 **Typical API flow:**
 
