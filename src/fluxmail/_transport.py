@@ -1,4 +1,5 @@
 import logging
+from contextlib import asynccontextmanager
 import smtplib
 import ssl as _ssl
 from typing import Optional
@@ -99,4 +100,35 @@ class _SMTPTransport:
             password=self._password if (self._username and self._password) else None,
             timeout=self._timeout,
             tls_context=self._ssl_context,
+        )
+
+    @asynccontextmanager
+    async def async_connection(self):
+        """Async context manager yielding an authenticated aiosmtplib.SMTP for reuse.
+
+        Use inside ``BulkSender.send_batch_async()`` to hold one connection
+        open across the whole batch instead of reconnecting per message.
+        """
+        tls_mode = "implicit-TLS" if self._use_ssl else ("STARTTLS" if self._use_tls else "plain")
+        self._logger.debug(
+            "Opening persistent async SMTP connection to %s:%d (%s)",
+            self._relay, self._port, tls_mode,
+        )
+        smtp = aiosmtplib.SMTP(
+            hostname=self._relay,
+            port=self._port,
+            use_tls=self._use_ssl,
+            tls_context=self._ssl_context if self._use_ssl else None,
+            timeout=self._timeout,
+        )
+        async with smtp:
+            if self._use_tls:
+                await smtp.starttls(context=self._ssl_context)
+                self._logger.debug("Async STARTTLS negotiated with %s", self._relay)
+            if self._username and self._password:
+                await smtp.login(self._username, self._password)
+                self._logger.debug("Async authenticated as %s", self._username)
+            yield smtp
+        self._logger.debug(
+            "Persistent async SMTP connection closed: %s:%d", self._relay, self._port
         )

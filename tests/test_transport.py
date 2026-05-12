@@ -203,3 +203,46 @@ class TestSendAsync:
         _, kwargs = mock_send.call_args
         assert kwargs["username"] is None
         assert kwargs["password"] is None
+
+
+class TestAsyncConnection:
+    async def test_yields_authenticated_smtp_conn(self):
+        t = make_transport(username="u@example.com", password="pass")
+        mock_smtp = AsyncMock()
+        mock_smtp.__aenter__ = AsyncMock(return_value=mock_smtp)
+        mock_smtp.__aexit__ = AsyncMock(return_value=False)
+        with patch("fluxmail._transport.aiosmtplib.SMTP", MagicMock(return_value=mock_smtp)):
+            async with t.async_connection() as smtp:
+                assert smtp is mock_smtp
+        mock_smtp.login.assert_called_once_with("u@example.com", "pass")
+
+    async def test_starttls_called_when_use_tls(self):
+        t = make_transport(use_tls=True, username="u@example.com", password="pass")
+        mock_smtp = AsyncMock()
+        mock_smtp.__aenter__ = AsyncMock(return_value=mock_smtp)
+        mock_smtp.__aexit__ = AsyncMock(return_value=False)
+        with patch("fluxmail._transport.aiosmtplib.SMTP", MagicMock(return_value=mock_smtp)):
+            async with t.async_connection() as smtp:
+                pass
+        mock_smtp.starttls.assert_called_once()
+        mock_smtp.login.assert_called_once()
+
+    async def test_starttls_not_called_when_use_ssl(self):
+        t = make_transport(use_ssl=True, username="u@example.com", password="pass")
+        mock_smtp = AsyncMock()
+        mock_smtp.__aenter__ = AsyncMock(return_value=mock_smtp)
+        mock_smtp.__aexit__ = AsyncMock(return_value=False)
+        with patch("fluxmail._transport.aiosmtplib.SMTP", MagicMock(return_value=mock_smtp)):
+            async with t.async_connection() as smtp:
+                pass
+        mock_smtp.starttls.assert_not_called()
+
+    async def test_no_login_without_credentials(self):
+        t = make_transport()
+        mock_smtp = AsyncMock()
+        mock_smtp.__aenter__ = AsyncMock(return_value=mock_smtp)
+        mock_smtp.__aexit__ = AsyncMock(return_value=False)
+        with patch("fluxmail._transport.aiosmtplib.SMTP", MagicMock(return_value=mock_smtp)):
+            async with t.async_connection() as smtp:
+                pass
+        mock_smtp.login.assert_not_called()
