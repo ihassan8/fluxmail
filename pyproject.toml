@@ -23,7 +23,6 @@ classifiers = [
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "Framework :: Django",
-    "Environment :: Asyncio",
     "Topic :: Software Development :: Libraries :: Python Modules",
     "Topic :: Communications :: Email",
     "Topic :: Internet",
