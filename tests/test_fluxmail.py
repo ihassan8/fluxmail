@@ -657,11 +657,12 @@ class TestTestConnection:
                 smtp_email.test_connection()
         assert exc_info.value.code == "connection_failed"
 
-    @pytest.mark.skipif(sys.platform != "win32", reason="Outlook only on Windows")
-    def test_outlook_raises_outlook_no_connect(self):
-        e = FluxMail(object_type="outlook", host=EmailInstance(relay=""))
-        with pytest.raises(FluxMailException) as exc_info:
-            e.test_connection()
+    def test_outlook_raises_outlook_no_connect(self, smtp_email):
+        # Patch at class level — avoids creating a real Outlook instance
+        # (COM dispatch would fail on any runner without Outlook installed)
+        with patch.object(FluxMail, "is_outlook", return_value=True):
+            with pytest.raises(FluxMailException) as exc_info:
+                smtp_email.test_connection()
         assert exc_info.value.code == "outlook_no_connect"
 
 
