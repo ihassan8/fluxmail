@@ -1,4 +1,5 @@
 import smtplib
+import sys
 
 import pytest
 from unittest.mock import patch, MagicMock, AsyncMock
@@ -54,6 +55,13 @@ class TestInit:
     def test_custom_port(self):
         e = FluxMail(object_type="smtp", host=HOST, port=587)
         assert e.port == 587
+
+    @pytest.mark.skipif(sys.platform == "win32", reason="verifies non-Windows guard only")
+    def test_outlook_raises_on_non_windows(self):
+        with pytest.raises(FluxMailException) as exc_info:
+            FluxMail(object_type="outlook", host=EmailInstance(relay=""))
+        assert exc_info.value.code == "invalid_config"
+        assert "Windows" in str(exc_info.value)
 
 
 # ── create() ─────────────────────────────────────────────────────────────────

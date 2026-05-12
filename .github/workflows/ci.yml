@@ -1,0 +1,56 @@
+# ==============================================================================
+# 🧪 CI — cross-platform, multi-Python test matrix
+# ==============================================================================
+# Runs on every push to main and on all pull requests.
+# Tags are excluded — the release workflow handles tag builds.
+#
+# Matrix: 3 OS × 5 Python versions = 15 jobs
+#   OS:     ubuntu-latest, macos-latest, windows-latest
+#   Python: 3.8, 3.9, 3.10, 3.11, 3.12
+#
+# Jobs are independent; fail-fast is disabled so the full picture is
+# visible when a single combination fails.
+# ==============================================================================
+
+name: 🧪 CI
+
+on:
+  push:
+    branches: [main]
+    tags-ignore: ["*.*.*"]   # tag pushes are handled by release.yml
+  pull_request:
+    branches: [main]
+
+jobs:
+  test:
+    name: 🧪 py${{ matrix.python-version }} / ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+        python-version: ["3.8", "3.9", "3.10", "3.11", "3.12"]
+
+    steps:
+      - name: 🔄 Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0   # full history so setuptools_scm can derive version
+
+      - name: 🐍 Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: 💾 Cache pip
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/pip
+          key: ci-pip-${{ runner.os }}-${{ matrix.python-version }}-${{ hashFiles('requirements*.txt', 'pyproject.toml') }}
+          restore-keys: ci-pip-${{ runner.os }}-${{ matrix.python-version }}-
+
+      - name: 📦 Install package + test dependencies
+        run: pip install -e ".[test]"
+
+      - name: 🧪 Run tests
+        run: pytest tests/ -v --tb=short
