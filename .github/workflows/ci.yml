@@ -1,56 +1,42 @@
-# ==============================================================================
-# 🧪 CI — cross-platform, multi-Python test matrix
-# ==============================================================================
-# Runs on every push to main and on all pull requests.
-# Tags are excluded — the release workflow handles tag builds.
-#
-# Matrix: 3 OS × 5 Python versions = 15 jobs
-#   OS:     ubuntu-latest, macos-latest, windows-latest
-#   Python: 3.8, 3.9, 3.10, 3.11, 3.12
-#
-# Jobs are independent; fail-fast is disabled so the full picture is
-# visible when a single combination fails.
-# ==============================================================================
-
-name: 🧪 CI
+name: CI
 
 on:
   push:
     branches: [main]
-    tags-ignore: ["*.*.*"]   # tag pushes are handled by release.yml
+    tags-ignore: ["*.*.*"]
   pull_request:
     branches: [main]
 
 jobs:
+
   test:
-    name: 🧪 py${{ matrix.python-version }} / ${{ matrix.os }}
-    runs-on: ${{ matrix.os }}
-    strategy:
-      fail-fast: false
-      matrix:
-        os: [ubuntu-latest, macos-latest, windows-latest]
-        python-version: ["3.9", "3.10", "3.11", "3.12"]
+    name: Test
+    uses: vertex-ai-automations/shared-workflows/.github/workflows/test.yml@main
+    with:
+      python-versions: '["3.9", "3.10", "3.11", "3.12"]'
+      os-matrix: '["ubuntu-latest", "windows-latest"]'
+      install-command: 'pip install -e ".[test]"'
+      test-command: 'pytest tests/ -v --tb=short'
 
-    steps:
-      - name: 🔄 Checkout
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 0   # full history so setuptools_scm can derive version
+  lint:
+    name: Lint
+    uses: vertex-ai-automations/shared-workflows/.github/workflows/lint.yml@main
 
-      - name: 🐍 Set up Python ${{ matrix.python-version }}
-        uses: actions/setup-python@v5
-        with:
-          python-version: ${{ matrix.python-version }}
+  typecheck:
+    name: Type Check
+    uses: vertex-ai-automations/shared-workflows/.github/workflows/typecheck.yml@main
+    with:
+      install-command: 'pip install -e ".[dev]"'
 
-      - name: 💾 Cache pip
-        uses: actions/cache@v4
-        with:
-          path: ~/.cache/pip
-          key: ci-pip-${{ runner.os }}-${{ matrix.python-version }}-${{ hashFiles('requirements*.txt', 'pyproject.toml') }}
-          restore-keys: ci-pip-${{ runner.os }}-${{ matrix.python-version }}-
+  audit:
+    name: Audit
+    uses: vertex-ai-automations/shared-workflows/.github/workflows/audit.yml@main
+    with:
+      install-command: 'pip install -e ".[test]"'
 
-      - name: 📦 Install package + test dependencies
-        run: pip install -e ".[test]"
-
-      - name: 🧪 Run tests
-        run: pytest tests/ -v --tb=short
+  coverage:
+    name: Coverage
+    uses: vertex-ai-automations/shared-workflows/.github/workflows/coverage.yml@main
+    with:
+      install-command: 'pip install -e ".[test]"'
+      coverage-source: 'src/'
