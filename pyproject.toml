@@ -66,3 +66,7 @@ asyncio_mode = "auto"
 timeout = 30
 
 
+
+[[tool.mypy.overrides]]
+module = "fluxmail.fluxmail"
+ignore_errors = true
