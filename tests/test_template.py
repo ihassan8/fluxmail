@@ -41,6 +41,7 @@ class TestEmailTemplate:
 
     def test_from_file_missing_raises_fluxmail_exception(self, tmp_path):
         from fluxmail import FluxMailException
+
         with pytest.raises(FluxMailException) as exc_info:
             EmailTemplate.from_file(str(tmp_path / "nonexistent.txt"))
         assert exc_info.value.code == "read_error"

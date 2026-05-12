@@ -26,7 +26,9 @@ def send(
     # ── Required ────────────────────────────────────────────────────────────
     email_type: Annotated[
         str,
-        typer.Option("--type", help="Email protocol: [bold]smtp[/bold] or [bold]outlook[/bold]"),
+        typer.Option(
+            "--type", help="Email protocol: [bold]smtp[/bold] or [bold]outlook[/bold]"
+        ),
     ],
     host: Annotated[
         str,
@@ -38,7 +40,9 @@ def send(
         ),
     ],
     subject: Annotated[str, typer.Option(help="Email subject.")],
-    recipients: Annotated[List[str], typer.Option("--recipients", help="Recipient email addresses.")],
+    recipients: Annotated[
+        List[str], typer.Option("--recipients", help="Recipient email addresses.")
+    ],
     # ── Body (one of --body or --body-file is required) ──────────────────────
     body: Annotated[
         Optional[str],
@@ -49,7 +53,7 @@ def send(
         typer.Option(
             "--body-file",
             help="Path to a file whose content becomes the email body. "
-                 "Mutually exclusive with --body.",
+            "Mutually exclusive with --body.",
         ),
     ] = None,
     # ── Content (optional) ──────────────────────────────────────────────────
@@ -63,16 +67,23 @@ def send(
         ),
     ] = None,
     cc: Annotated[Optional[List[str]], typer.Option(help="CC email addresses.")] = None,
-    bcc: Annotated[Optional[List[str]], typer.Option(help="BCC email addresses.")] = None,
+    bcc: Annotated[
+        Optional[List[str]], typer.Option(help="BCC email addresses.")
+    ] = None,
     reply_to: Annotated[
         Optional[str], typer.Option("--reply-to", help="Reply-To address (SMTP only).")
     ] = None,
     attachments: Annotated[
         Optional[List[str]], typer.Option(help="Paths to files to attach.")
     ] = None,
-    html: Annotated[bool, typer.Option("--html/--no-html", help="Treat body as HTML.")] = False,
+    html: Annotated[
+        bool, typer.Option("--html/--no-html", help="Treat body as HTML.")
+    ] = False,
     dry_run: Annotated[
-        bool, typer.Option("--dry-run/--no-dry-run", help="Preview the email without sending.")
+        bool,
+        typer.Option(
+            "--dry-run/--no-dry-run", help="Preview the email without sending."
+        ),
     ] = False,
     # ── SMTP connection ──────────────────────────────────────────────────────
     port: Annotated[int, typer.Option(help="SMTP port. Use 587 for STARTTLS.")] = 25,
@@ -94,11 +105,15 @@ def send(
             hide_input=True,
         ),
     ] = None,
-    tls: Annotated[bool, typer.Option("--tls/--no-tls", help="Enable STARTTLS.")] = False,
+    tls: Annotated[
+        bool, typer.Option("--tls/--no-tls", help="Enable STARTTLS.")
+    ] = False,
     ssl: Annotated[
         bool,
-        typer.Option("--ssl/--no-ssl",
-                     help="Use implicit TLS (port 465). Mutually exclusive with --tls."),
+        typer.Option(
+            "--ssl/--no-ssl",
+            help="Use implicit TLS (port 465). Mutually exclusive with --tls.",
+        ),
     ] = False,
     timeout: Annotated[
         int,
@@ -116,8 +131,10 @@ def send(
     version: Annotated[
         bool,
         typer.Option(
-            "--version", callback=_version_callback, is_eager=True,
-            help="Show version and exit."
+            "--version",
+            callback=_version_callback,
+            is_eager=True,
+            help="Show version and exit.",
         ),
     ] = False,
 ):

@@ -2,10 +2,10 @@
 
 Django settings are configured at module level so no Django project is required.
 """
+
 from unittest.mock import MagicMock, patch
 
 import pytest
-import django
 from django.conf import settings
 
 if not settings.configured:
@@ -56,7 +56,9 @@ class TestFluxMailBackend:
         backend = make_backend(fail_silently=True)
         django_msg = MagicMock()
         django_msg.message.return_value = MagicMock()
-        with patch.object(backend._mailer._transport, "send", side_effect=Exception("fail")):
+        with patch.object(
+            backend._mailer._transport, "send", side_effect=Exception("fail")
+        ):
             result = backend.send_messages([django_msg])
         assert result == 0
 
@@ -64,7 +66,9 @@ class TestFluxMailBackend:
         backend = make_backend(fail_silently=False)
         django_msg = MagicMock()
         django_msg.message.return_value = MagicMock()
-        with patch.object(backend._mailer._transport, "send", side_effect=Exception("fail")):
+        with patch.object(
+            backend._mailer._transport, "send", side_effect=Exception("fail")
+        ):
             with pytest.raises(Exception, match="fail"):
                 backend.send_messages([django_msg])
 
@@ -107,4 +111,5 @@ class TestFluxMailBackend:
     def test_backends_package_export(self):
         # fluxmail.backends.__init__ exports FluxMailBackend directly
         from fluxmail.backends import FluxMailBackend as BackendFromPackage
+
         assert BackendFromPackage is FluxMailBackend

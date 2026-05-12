@@ -79,7 +79,9 @@ def str_to_enum(enum_cls: Type[E], item: Union[str, E]) -> E:
             f"Must be one of: {enum_cls._member_names_}"
         )
     else:
-        raise TypeError(f"Item must be a string or enum member of: {enum_cls._member_names_}")
+        raise TypeError(
+            f"Item must be a string or enum member of: {enum_cls._member_names_}"
+        )
 
 
 def validate_email(item: str) -> str:
@@ -106,7 +108,9 @@ def validate_email(item: str) -> str:
     email = item.strip().lower().rstrip(".")
 
     if email.startswith(".") or ".@" in email or "@" not in email or "@." in email:
-        raise FluxMailException(f"Invalid email '{email}': format issue.", code="invalid_email")
+        raise FluxMailException(
+            f"Invalid email '{email}': format issue.", code="invalid_email"
+        )
 
     if not EMAIL_REGEX.match(email):
         raise FluxMailException(

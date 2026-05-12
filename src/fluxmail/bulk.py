@@ -1,7 +1,13 @@
 import asyncio
 from typing import Any, Callable, Dict, List, Optional, Tuple
 
-from rich.progress import BarColumn, Progress, SpinnerColumn, TaskProgressColumn, TextColumn
+from rich.progress import (
+    BarColumn,
+    Progress,
+    SpinnerColumn,
+    TaskProgressColumn,
+    TextColumn,
+)
 
 from .fluxmail import FluxMail
 from .utils import FluxMailException
@@ -57,8 +63,11 @@ class BulkSender:
                     except Exception as exc:
                         failed += 1
                         err = (
-                            exc if isinstance(exc, FluxMailException)
-                            else FluxMailException(f"Message {i} failed: {exc}", code="send_failed")
+                            exc
+                            if isinstance(exc, FluxMailException)
+                            else FluxMailException(
+                                f"Message {i} failed: {exc}", code="send_failed"
+                            )
                         )
                         errors.append((i, err))
                         if on_error:
@@ -139,7 +148,8 @@ class BulkSender:
                     except Exception as exc:
                         failed += 1
                         err = (
-                            exc if isinstance(exc, FluxMailException)
+                            exc
+                            if isinstance(exc, FluxMailException)
                             else FluxMailException(
                                 f"Message {i} failed: {exc}", code="send_failed"
                             )

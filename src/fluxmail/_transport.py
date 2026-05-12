@@ -35,14 +35,22 @@ class _SMTPTransport:
         self._conn: Optional[smtplib.SMTP] = None
 
     def _make_connection(self) -> smtplib.SMTP:
-        tls_mode = "implicit-TLS" if self._use_ssl else ("STARTTLS" if self._use_tls else "plain")
+        tls_mode = (
+            "implicit-TLS"
+            if self._use_ssl
+            else ("STARTTLS" if self._use_tls else "plain")
+        )
         self._logger.debug(
             "Connecting to %s:%d (%s, timeout=%ds)",
-            self._relay, self._port, tls_mode, self._timeout,
+            self._relay,
+            self._port,
+            tls_mode,
+            self._timeout,
         )
         if self._use_ssl:
             conn: smtplib.SMTP = smtplib.SMTP_SSL(
-                self._relay, self._port,
+                self._relay,
+                self._port,
                 context=self._ssl_context,
                 timeout=self._timeout,
             )
@@ -58,10 +66,14 @@ class _SMTPTransport:
 
     def send(self, message) -> None:
         if self._conn is not None:
-            self._logger.debug("Sending via persistent connection to %s:%d", self._relay, self._port)
+            self._logger.debug(
+                "Sending via persistent connection to %s:%d", self._relay, self._port
+            )
             self._conn.send_message(message)
         else:
-            self._logger.debug("Sending via transient connection to %s:%d", self._relay, self._port)
+            self._logger.debug(
+                "Sending via transient connection to %s:%d", self._relay, self._port
+            )
             conn = self._make_connection()
             try:
                 conn.send_message(message)
@@ -72,12 +84,16 @@ class _SMTPTransport:
                     pass
 
     def open(self) -> None:
-        self._logger.debug("Opening persistent SMTP connection to %s:%d", self._relay, self._port)
+        self._logger.debug(
+            "Opening persistent SMTP connection to %s:%d", self._relay, self._port
+        )
         self._conn = self._make_connection()
 
     def close(self) -> None:
         if self._conn is not None:
-            self._logger.debug("Closing persistent SMTP connection to %s:%d", self._relay, self._port)
+            self._logger.debug(
+                "Closing persistent SMTP connection to %s:%d", self._relay, self._port
+            )
             try:
                 self._conn.quit()
             except Exception:
@@ -85,10 +101,16 @@ class _SMTPTransport:
             self._conn = None
 
     async def send_async(self, message) -> None:
-        tls_mode = "implicit-TLS" if self._use_ssl else ("STARTTLS" if self._use_tls else "plain")
+        tls_mode = (
+            "implicit-TLS"
+            if self._use_ssl
+            else ("STARTTLS" if self._use_tls else "plain")
+        )
         self._logger.debug(
             "Sending async to %s:%d (%s)",
-            self._relay, self._port, tls_mode,
+            self._relay,
+            self._port,
+            tls_mode,
         )
         await aiosmtplib.send(
             message,
@@ -109,10 +131,16 @@ class _SMTPTransport:
         Use inside ``BulkSender.send_batch_async()`` to hold one connection
         open across the whole batch instead of reconnecting per message.
         """
-        tls_mode = "implicit-TLS" if self._use_ssl else ("STARTTLS" if self._use_tls else "plain")
+        tls_mode = (
+            "implicit-TLS"
+            if self._use_ssl
+            else ("STARTTLS" if self._use_tls else "plain")
+        )
         self._logger.debug(
             "Opening persistent async SMTP connection to %s:%d (%s)",
-            self._relay, self._port, tls_mode,
+            self._relay,
+            self._port,
+            tls_mode,
         )
         smtp = aiosmtplib.SMTP(
             hostname=self._relay,

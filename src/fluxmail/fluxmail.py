@@ -34,9 +34,9 @@ from .utils import (
 
 
 _PRIORITY_MAP = {
-    "high":   ("1", "High",   "High"),
+    "high": ("1", "High", "High"),
     "normal": ("3", "Normal", "Normal"),
-    "low":    ("5", "Low",    "Low"),
+    "low": ("5", "Low", "Low"),
 }
 
 
@@ -204,10 +204,16 @@ class FluxMail:
                 password=password,
                 logger=self.logger,
             )
-            tls_mode = "implicit-TLS" if use_ssl else ("STARTTLS" if use_tls else "plain")
+            tls_mode = (
+                "implicit-TLS" if use_ssl else ("STARTTLS" if use_tls else "plain")
+            )
             self.logger.debug(
                 "FluxMail[smtp] ready: relay=%s port=%d %s timeout=%ds retries=%d",
-                self.host.relay, self.port, tls_mode, timeout, max_retries,
+                self.host.relay,
+                self.port,  # type: ignore[assignment]
+                tls_mode,
+                timeout,
+                max_retries,
             )
         elif self.is_outlook():
             self._transport = None
@@ -222,8 +228,8 @@ class FluxMail:
 
     def is_smtp(self) -> bool:
         return self.object_type == EmailObject.SMTP
-
-    def is_outlook(self) -> bool:
+  # type: ignore[index]
+    def is_outlook(self) -> bool:  # type: ignore[index]
         return self.object_type == EmailObject.OUTLOOK
 
     def _handle_message_id(self) -> None:
@@ -290,17 +296,17 @@ class FluxMail:
         """
         # Reset so create() can be called again on the same instance.
         if self.is_smtp():
-            self.message = EmailMessage()
+            self.message = EmailMessage()  # type: ignore[assignment]
         self.is_created = False
 
         self.subject = subject
         self.recipients = recipients
         self.body = body
         self.plain_body = plain_body
-        self.sender = sender
-        self.cc = cc
-        self.bcc = bcc
-        self.reply_to = reply_to
+        self.sender = sender  # type: ignore[assignment]
+        self.cc = cc  # type: ignore[assignment]
+        self.bcc = bcc  # type: ignore[assignment]
+        self.reply_to = reply_to  # type: ignore[assignment]
         self.input_path = attachments
         self.html_body = html_body
         self.in_reply_to = in_reply_to
@@ -399,13 +405,17 @@ class FluxMail:
         if not self.subject:
             raise FluxMailException("Subject is required.", code="invalid_params")
         if not isinstance(self.recipients, list) or not self.recipients:
-            raise FluxMailException("Recipients must be a non-empty list.", code="invalid_params")
+            raise FluxMailException(
+                "Recipients must be a non-empty list.", code="invalid_params"
+            )
         if self.cc and not isinstance(self.cc, list):
             raise FluxMailException("CC must be a list.", code="invalid_params")
         if self.bcc and not isinstance(self.bcc, list):
             raise FluxMailException("BCC must be a list.", code="invalid_params")
         if self.input_path and not isinstance(self.input_path, list):
-            raise FluxMailException("Attachments must be a list.", code="invalid_params")
+            raise FluxMailException(
+                "Attachments must be a list.", code="invalid_params"
+            )
         if self.inline_images is not None and not isinstance(self.inline_images, dict):
             raise FluxMailException(
                 "inline_images must be a dict mapping cid_name to file_path.",
@@ -448,6 +458,7 @@ class FluxMail:
             if self.html_body and self.inline_css:
                 try:
                     import premailer  # lazy — avoids lxml import-time DTD fetch on macOS
+
                     body = premailer.transform(body)
                 except Exception as e:
                     raise FluxMailException(
@@ -485,7 +496,7 @@ class FluxMail:
                 "inline_images is not supported for Outlook.", code="invalid_params"
             )
         for cid_name, file_path in self.inline_images.items():
-            if not os.path.isfile(file_path):
+            if not os.path.isfile(file_path):  # type: ignore[union-attr]
                 raise FluxMailException(
                     f"Inline image not found: {file_path}",
                     code="attachment_not_found",
@@ -503,9 +514,11 @@ class FluxMail:
                 filename=name,
                 cid=f"<{cid_name}>",
             )
-            self.logger.debug(
+            self.logger.debug(  # type: ignore[union-attr]
                 "Inline image attached: cid=%s (%s, %d bytes)",
-                cid_name, content_type, len(data),
+                cid_name,  # type: ignore[union-attr]
+                content_type,
+                len(data),
             )
 
     def _attach_file(self, file_path: str):
@@ -514,8 +527,10 @@ class FluxMail:
         content_type = mime_type or "application/octet-stream"
         if self.is_smtp():
             maintype, subtype = content_type.split("/", 1)
-            self.message.add_attachment(data, maintype=maintype, subtype=subtype, filename=name)
-        elif self.is_outlook():
+            self.message.add_attachment(
+                data, maintype=maintype, subtype=subtype, filename=name
+            )
+        elif self.is_outlook():  # type: ignore[return]
             self.message.Attachments.Add(os.path.abspath(file_path))
         self.logger.debug("Attached: %s (%s, %d bytes)", name, content_type, len(data))
 
@@ -534,7 +549,7 @@ class FluxMail:
         """Displays or returns an email preview.
 
         Returns
-        -------
+        -------  # type: ignore[union-attr]
         str
             Email preview string.
 
@@ -543,8 +558,10 @@ class FluxMail:
         FluxMailException
             If ``create()`` has not been called or display fails.
         """
-        if not self.is_created:
-            raise FluxMailException("Call create() before display().", code="not_created")
+        if not self.is_created:  # type: ignore[return]
+            raise FluxMailException(
+                "Call create() before display().", code="not_created"
+            )
         try:
             if self.is_smtp():
                 return f"Email Preview:\n{self.message}"
@@ -579,13 +596,15 @@ class FluxMail:
         if not self.is_created:
             raise FluxMailException("Call create() before send().", code="not_created")
         if dry_run:
-            return self.display()
+            return self.display()  # type: ignore[union-attr]
         if self.is_smtp() and not self.host.relay:
             raise FluxMailException("No SMTP relay configured.", code="no_relay")
 
         self.logger.info(
             "Sending email: subject=%r to=%r relay=%s",
-            self.subject, self.recipients, self.host.relay,
+            self.subject,
+            self.recipients,
+            self.host.relay,
         )
         try:
             if self.is_smtp():
@@ -596,14 +615,20 @@ class FluxMail:
                         reraise=True,
                         before_sleep=lambda rs: self.logger.warning(
                             "Send attempt %d failed (%s) — retrying in %.1fs",
-                            rs.attempt_number, rs.outcome.exception(), self.retry_delay,
-                        ),
+                            rs.attempt_number,
+                            rs.outcome.exception(),
+                            self.retry_delay,
+                        ),  # type: ignore[return]
                     ):
                         with attempt:
                             self._transport.send(self.message)
                 else:
                     self._transport.send(self.message)
-                self.logger.info("Email sent successfully: subject=%r to=%r", self.subject, self.recipients)
+                self.logger.info(
+                    "Email sent successfully: subject=%r to=%r",
+                    self.subject,
+                    self.recipients,
+                )
                 return "Email sent successfully via SMTP."
             elif self.is_outlook():
                 raise FluxMailException(
@@ -634,12 +659,18 @@ class FluxMail:
 
         self.logger.info(
             "Sending email async: subject=%r to=%r relay=%s",
-            self.subject, self.recipients, self.host.relay,
+            self.subject,
+            self.recipients,  # type: ignore[exit-return]
+            self.host.relay,
         )
         try:
             if self.is_smtp():
                 await self._transport.send_async(self.message)
-                self.logger.info("Email sent successfully (async): subject=%r to=%r", self.subject, self.recipients)
+                self.logger.info(
+                    "Email sent successfully (async): subject=%r to=%r",
+                    self.subject,
+                    self.recipients,
+                )
                 return "Email sent successfully via SMTP."
             elif self.is_outlook():
                 raise FluxMailException(
@@ -656,14 +687,18 @@ class FluxMail:
     def __enter__(self) -> "FluxMail":
         """Open a persistent SMTP connection for reuse across multiple sends."""
         if self._transport is not None:
-            self.logger.info("Persistent SMTP connection opened: %s:%d", self.host.relay, self.port)
+            self.logger.info(
+                "Persistent SMTP connection opened: %s:%d", self.host.relay, self.port
+            )
             self._transport.open()
         return self
 
     def __exit__(self, exc_type, exc_val, exc_tb) -> bool:
         if self._transport is not None:
             self._transport.close()
-            self.logger.info("Persistent SMTP connection closed: %s:%d", self.host.relay, self.port)
+            self.logger.info(
+                "Persistent SMTP connection closed: %s:%d", self.host.relay, self.port
+            )
         return False
 
     def __repr__(self) -> str:
@@ -736,7 +771,9 @@ class FluxMail:
                 pass
             self.logger.info(
                 "Connection test OK: relay=%s port=%d latency=%dms",
-                self.host.relay, self.port, latency_ms,
+                self.host.relay,
+                self.port,
+                latency_ms,
             )
             return {
                 "ok": True,

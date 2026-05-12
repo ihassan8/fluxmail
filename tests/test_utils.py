@@ -6,6 +6,7 @@ from fluxmail.utils import str_to_enum, validate_email
 
 # ── EmailInstance ─────────────────────────────────────────────────────────────
 
+
 class TestEmailInstance:
     def test_relay_required(self):
         e = EmailInstance(relay="smtp.example.com")
@@ -21,6 +22,7 @@ class TestEmailInstance:
 
 
 # ── str_to_enum ──────────────────────────────────────────────────────────────
+
 
 class TestStrToEnum:
     def test_by_name_lowercase(self):
@@ -45,6 +47,7 @@ class TestStrToEnum:
 
 
 # ── validate_email ───────────────────────────────────────────────────────────
+
 
 class TestValidateEmail:
     def test_valid_email_returned(self):
@@ -83,6 +86,7 @@ class TestValidateEmail:
 
 
 # ── FluxMailException ─────────────────────────────────────────────────────────
+
 
 class TestFluxMailExceptionCode:
     def test_code_stored(self):

@@ -12,6 +12,7 @@ HOST = EmailInstance(relay="smtp.example.com")
 
 # ── __init__ ─────────────────────────────────────────────────────────────────
 
+
 class TestInit:
     def test_smtp_object_type(self):
         e = FluxMail(object_type=EmailObject.SMTP, host=HOST)
@@ -56,7 +57,9 @@ class TestInit:
         e = FluxMail(object_type="smtp", host=HOST, port=587)
         assert e.port == 587
 
-    @pytest.mark.skipif(sys.platform == "win32", reason="verifies non-Windows guard only")
+    @pytest.mark.skipif(
+        sys.platform == "win32", reason="verifies non-Windows guard only"
+    )
     def test_outlook_raises_on_non_windows(self):
         with pytest.raises(FluxMailException) as exc_info:
             FluxMail(object_type="outlook", host=EmailInstance(relay=""))
@@ -65,6 +68,7 @@ class TestInit:
 
 
 # ── create() ─────────────────────────────────────────────────────────────────
+
 
 class TestCreate:
     def test_returns_self(self, smtp_email):
@@ -89,27 +93,37 @@ class TestCreate:
 
     def test_string_cc_raises(self, smtp_email):
         with pytest.raises(FluxMailException):
-            smtp_email.create(subject="Hi", recipients=["a@b.com"], body="Hi", cc="a@b.com")
+            smtp_email.create(
+                subject="Hi", recipients=["a@b.com"], body="Hi", cc="a@b.com"
+            )
 
     def test_string_bcc_raises(self, smtp_email):
         with pytest.raises(FluxMailException):
-            smtp_email.create(subject="Hi", recipients=["a@b.com"], body="Hi", bcc="a@b.com")
+            smtp_email.create(
+                subject="Hi", recipients=["a@b.com"], body="Hi", bcc="a@b.com"
+            )
 
     def test_subject_set_on_message(self, smtp_email):
         smtp_email.create(subject="Test Subject", recipients=["a@b.com"], body="Hi")
         assert smtp_email.message["Subject"] == "Test Subject"
 
     def test_recipients_set_on_message(self, smtp_email):
-        smtp_email.create(subject="Hi", recipients=["alice@b.com", "bob@b.com"], body="Hi")
+        smtp_email.create(
+            subject="Hi", recipients=["alice@b.com", "bob@b.com"], body="Hi"
+        )
         assert "alice@b.com" in smtp_email.message["To"]
         assert "bob@b.com" in smtp_email.message["To"]
 
     def test_cc_set_on_message(self, smtp_email):
-        smtp_email.create(subject="Hi", recipients=["a@b.com"], body="Hi", cc=["cc@b.com"])
+        smtp_email.create(
+            subject="Hi", recipients=["a@b.com"], body="Hi", cc=["cc@b.com"]
+        )
         assert "cc@b.com" in smtp_email.message["Cc"]
 
     def test_bcc_set_on_message(self, smtp_email):
-        smtp_email.create(subject="Hi", recipients=["a@b.com"], body="Hi", bcc=["bcc@b.com"])
+        smtp_email.create(
+            subject="Hi", recipients=["a@b.com"], body="Hi", bcc=["bcc@b.com"]
+        )
         assert "bcc@b.com" in smtp_email.message["Bcc"]
 
     def test_reply_to_set_on_message(self, smtp_email):
@@ -127,8 +141,12 @@ class TestCreate:
 
     def test_explicit_sender_used_over_username(self):
         e = FluxMail(object_type="smtp", host=HOST, username="auth@example.com")
-        e.create(subject="Hi", recipients=["a@b.com"], body="Hi",
-                 sender="noreply@example.com")
+        e.create(
+            subject="Hi",
+            recipients=["a@b.com"],
+            body="Hi",
+            sender="noreply@example.com",
+        )
         assert e.message["From"] == "noreply@example.com"
 
     def test_sender_raises_when_username_not_email(self):
@@ -142,8 +160,9 @@ class TestCreate:
             e.create(subject="Hi", recipients=["a@b.com"], body="Hi")
 
     def test_explicit_sender_set_on_message(self, smtp_email):
-        smtp_email.create(subject="Hi", recipients=["a@b.com"], body="Hi",
-                          sender="custom@example.com")
+        smtp_email.create(
+            subject="Hi", recipients=["a@b.com"], body="Hi", sender="custom@example.com"
+        )
         assert smtp_email.message["From"] == "custom@example.com"
 
     def test_any_recipient_domain_accepted(self, smtp_email):
@@ -153,6 +172,7 @@ class TestCreate:
 
 
 # ── send() ───────────────────────────────────────────────────────────────────
+
 
 class TestSend:
     def test_send_before_create_raises(self, smtp_email):
@@ -173,24 +193,27 @@ class TestSend:
 
     def test_send_with_tls_calls_starttls(self):
         with mock_smtp() as smtp:
-            e = FluxMail(object_type="smtp", host=HOST, use_tls=True,
-                          username="u@example.com")
+            e = FluxMail(
+                object_type="smtp", host=HOST, use_tls=True, username="u@example.com"
+            )
             e.create(subject="Hi", recipients=["a@b.com"], body="Hello")
             e.send()
         smtp.starttls.assert_called_once()
 
     def test_send_without_tls_does_not_starttls(self):
         with mock_smtp() as smtp:
-            e = FluxMail(object_type="smtp", host=HOST, use_tls=False,
-                          username="u@example.com")
+            e = FluxMail(
+                object_type="smtp", host=HOST, use_tls=False, username="u@example.com"
+            )
             e.create(subject="Hi", recipients=["a@b.com"], body="Hello")
             e.send()
         smtp.starttls.assert_not_called()
 
     def test_send_with_credentials_calls_login(self):
         with mock_smtp() as smtp:
-            e = FluxMail(object_type="smtp", host=HOST,
-                          username="u@example.com", password="p")
+            e = FluxMail(
+                object_type="smtp", host=HOST, username="u@example.com", password="p"
+            )
             e.create(subject="Hi", recipients=["a@b.com"], body="Hello")
             e.send()
         smtp.login.assert_called_once_with("u@example.com", "p")
@@ -212,10 +235,12 @@ class TestSend:
 
 # ── multipart ────────────────────────────────────────────────────────────────
 
+
 class TestMultipart:
     def test_html_with_plain_body_creates_multipart(self, smtp_email):
         smtp_email.create(
-            subject="Hi", recipients=["a@b.com"],
+            subject="Hi",
+            recipients=["a@b.com"],
             body="<h1>Hello</h1>",
             html_body=True,
             plain_body="Hello",
@@ -224,7 +249,8 @@ class TestMultipart:
 
     def test_html_without_plain_body_is_not_multipart(self, smtp_email):
         smtp_email.create(
-            subject="Hi", recipients=["a@b.com"],
+            subject="Hi",
+            recipients=["a@b.com"],
             body="<h1>Hello</h1>",
             html_body=True,
         )
@@ -232,7 +258,8 @@ class TestMultipart:
 
     def test_plain_body_ignored_when_html_body_false(self, smtp_email):
         smtp_email.create(
-            subject="Hi", recipients=["a@b.com"],
+            subject="Hi",
+            recipients=["a@b.com"],
             body="Hello",
             html_body=False,
             plain_body="ignored",
@@ -242,17 +269,22 @@ class TestMultipart:
 
 # ── threading headers ─────────────────────────────────────────────────────────
 
+
 class TestThreadingHeaders:
     def test_in_reply_to_set(self, smtp_email):
         smtp_email.create(
-            subject="Re: Hi", recipients=["a@b.com"], body="Reply",
+            subject="Re: Hi",
+            recipients=["a@b.com"],
+            body="Reply",
             in_reply_to="<abc123@example.com>",
         )
         assert smtp_email.message["In-Reply-To"] == "<abc123@example.com>"
 
     def test_references_set(self, smtp_email):
         smtp_email.create(
-            subject="Re: Hi", recipients=["a@b.com"], body="Reply",
+            subject="Re: Hi",
+            recipients=["a@b.com"],
+            body="Reply",
             references=["<msg1@example.com>", "<msg2@example.com>"],
         )
         assert "<msg1@example.com>" in smtp_email.message["References"]
@@ -265,6 +297,7 @@ class TestThreadingHeaders:
 
 
 # ── priority headers ──────────────────────────────────────────────────────────
+
 
 class TestPriorityHeaders:
     def test_high_priority_sets_headers(self, smtp_email):
@@ -294,15 +327,18 @@ class TestPriorityHeaders:
 
 # ── context manager ───────────────────────────────────────────────────────────
 
+
 class TestContextManager:
     def test_context_manager_reuses_connection(self):
         from unittest.mock import patch, MagicMock
+
         mock_conn = MagicMock()
         mock_cls = MagicMock(return_value=mock_conn)
 
         with patch("fluxmail._transport.smtplib.SMTP", mock_cls):
-            with FluxMail(object_type="smtp", host=HOST,
-                           username="u@example.com") as mailer:
+            with FluxMail(
+                object_type="smtp", host=HOST, username="u@example.com"
+            ) as mailer:
                 mailer.create(subject="A", recipients=["a@b.com"], body="1").send()
                 mailer.create(subject="B", recipients=["a@b.com"], body="2").send()
 
@@ -311,12 +347,14 @@ class TestContextManager:
 
     def test_context_manager_calls_quit_on_exit(self):
         from unittest.mock import patch, MagicMock
+
         mock_conn = MagicMock()
         mock_cls = MagicMock(return_value=mock_conn)
 
         with patch("fluxmail._transport.smtplib.SMTP", mock_cls):
-            with FluxMail(object_type="smtp", host=HOST,
-                           username="u@example.com") as mailer:
+            with FluxMail(
+                object_type="smtp", host=HOST, username="u@example.com"
+            ) as mailer:
                 mailer.create(subject="A", recipients=["a@b.com"], body="1").send()
 
         mock_conn.quit.assert_called_once()
@@ -329,6 +367,7 @@ class TestContextManager:
 
 
 # ── display() ────────────────────────────────────────────────────────────────
+
 
 class TestDisplay:
     def test_display_before_create_raises(self, smtp_email):
@@ -344,35 +383,44 @@ class TestDisplay:
 
 # ── attachments ───────────────────────────────────────────────────────────────
 
+
 class TestAttachments:
     def test_attach_existing_file(self, smtp_email, tmp_path):
         f = tmp_path / "note.txt"
         f.write_text("hello")
-        smtp_email.create(subject="Hi", recipients=["a@b.com"], body="Hi",
-                          attachments=[str(f)])
+        smtp_email.create(
+            subject="Hi", recipients=["a@b.com"], body="Hi", attachments=[str(f)]
+        )
         assert smtp_email.is_created
 
     def test_missing_attachment_raises(self, smtp_email, tmp_path):
         with pytest.raises(FluxMailException, match="Attachment not found"):
-            smtp_email.create(subject="Hi", recipients=["a@b.com"], body="Hi",
-                              attachments=[str(tmp_path / "missing.pdf")])
+            smtp_email.create(
+                subject="Hi",
+                recipients=["a@b.com"],
+                body="Hi",
+                attachments=[str(tmp_path / "missing.pdf")],
+            )
 
     def test_send_with_attachment(self, smtp_email, tmp_path):
         f = tmp_path / "report.pdf"
         f.write_bytes(b"%PDF fake")
         with mock_smtp() as smtp:
-            smtp_email.create(subject="Hi", recipients=["a@b.com"], body="Hi",
-                              attachments=[str(f)])
+            smtp_email.create(
+                subject="Hi", recipients=["a@b.com"], body="Hi", attachments=[str(f)]
+            )
             smtp_email.send()
         smtp.send_message.assert_called_once()
 
     def test_string_attachments_raises(self, smtp_email):
         with pytest.raises(FluxMailException):
-            smtp_email.create(subject="Hi", recipients=["a@b.com"], body="Hi",
-                              attachments="file.txt")
+            smtp_email.create(
+                subject="Hi", recipients=["a@b.com"], body="Hi", attachments="file.txt"
+            )
 
 
 # ── instance reuse ────────────────────────────────────────────────────────────
+
 
 class TestInstanceReuse:
     def test_create_twice_resets_message(self, smtp_email):
@@ -392,16 +440,19 @@ class TestInstanceReuse:
 
 # ── empty relay ───────────────────────────────────────────────────────────────
 
+
 class TestEmptyRelay:
     def test_send_with_empty_relay_raises(self):
-        e = FluxMail(object_type="smtp", host=EmailInstance(relay=""),
-                     username="u@example.com")
+        e = FluxMail(
+            object_type="smtp", host=EmailInstance(relay=""), username="u@example.com"
+        )
         e.create(subject="Hi", recipients=["a@b.com"], body="Hi")
         with pytest.raises(FluxMailException, match="relay"):
             e.send()
 
 
 # ── repr ──────────────────────────────────────────────────────────────────────
+
 
 class TestRepr:
     def test_repr_contains_type_and_host(self, smtp_email):
@@ -440,8 +491,10 @@ class TestNewConstructorParams:
         with patch("fluxmail._transport.smtplib.SMTP_SSL") as mock_ssl:
             mock_ssl.return_value = MagicMock()
             e = FluxMail(
-                object_type="smtp", host=HOST,
-                username="u@example.com", use_ssl=True,
+                object_type="smtp",
+                host=HOST,
+                username="u@example.com",
+                use_ssl=True,
             )
             e.create(subject="Hi", recipients=["a@b.com"], body="Hi").send()
         mock_ssl.assert_called_once()
@@ -464,8 +517,9 @@ class TestErrorCodes:
         assert exc_info.value.code == "not_created"
 
     def test_empty_relay_has_no_relay_code(self):
-        e = FluxMail(object_type="smtp", host=EmailInstance(relay=""),
-                     username="u@example.com")
+        e = FluxMail(
+            object_type="smtp", host=EmailInstance(relay=""), username="u@example.com"
+        )
         e.create(subject="Hi", recipients=["a@b.com"], body="Hi")
         with pytest.raises(FluxMailException) as exc_info:
             e.send()
@@ -479,24 +533,31 @@ class TestErrorCodes:
 
     def test_invalid_priority_code(self, smtp_email):
         with pytest.raises(FluxMailException) as exc_info:
-            smtp_email.create(subject="Hi", recipients=["a@b.com"],
-                              body="Hi", priority="urgent")
+            smtp_email.create(
+                subject="Hi", recipients=["a@b.com"], body="Hi", priority="urgent"
+            )
         assert exc_info.value.code == "invalid_priority"
 
     def test_missing_attachment_code(self, smtp_email):
         with pytest.raises(FluxMailException) as exc_info:
-            smtp_email.create(subject="Hi", recipients=["a@b.com"],
-                              body="Hi", attachments=["/nonexistent/file.pdf"])
+            smtp_email.create(
+                subject="Hi",
+                recipients=["a@b.com"],
+                body="Hi",
+                attachments=["/nonexistent/file.pdf"],
+            )
         assert exc_info.value.code == "attachment_not_found"
 
     def test_invalid_email_code(self):
         from fluxmail.utils import validate_email
+
         with pytest.raises(FluxMailException) as exc_info:
             validate_email("not-an-email")
         assert exc_info.value.code == "invalid_email"
 
 
 # ── send_async() ──────────────────────────────────────────────────────────────
+
 
 class TestSendAsync:
     async def test_send_async_before_create_raises(self, smtp_email):
@@ -506,15 +567,15 @@ class TestSendAsync:
 
     async def test_send_async_delegates_to_transport(self, smtp_email):
         smtp_email.create(subject="Hi", recipients=["a@b.com"], body="Hello")
-        with patch.object(smtp_email._transport, "send_async",
-                          new_callable=AsyncMock) as mock_async:
+        with patch.object(
+            smtp_email._transport, "send_async", new_callable=AsyncMock
+        ) as mock_async:
             await smtp_email.send_async()
         mock_async.assert_called_once_with(smtp_email.message)
 
     async def test_send_async_returns_success_string(self, smtp_email):
         smtp_email.create(subject="Hi", recipients=["a@b.com"], body="Hello")
-        with patch.object(smtp_email._transport, "send_async",
-                          new_callable=AsyncMock):
+        with patch.object(smtp_email._transport, "send_async", new_callable=AsyncMock):
             result = await smtp_email.send_async()
         assert "sent successfully" in result
 
@@ -524,8 +585,9 @@ class TestSendAsync:
         assert "Email Preview" in result
 
     async def test_send_async_empty_relay_raises(self):
-        e = FluxMail(object_type="smtp", host=EmailInstance(relay=""),
-                     username="u@example.com")
+        e = FluxMail(
+            object_type="smtp", host=EmailInstance(relay=""), username="u@example.com"
+        )
         e.create(subject="Hi", recipients=["a@b.com"], body="Hi")
         with pytest.raises(FluxMailException) as exc_info:
             await e.send_async()
@@ -533,6 +595,7 @@ class TestSendAsync:
 
 
 # ── retry ─────────────────────────────────────────────────────────────────────
+
 
 class TestRetry:
     def test_retries_on_failure_then_succeeds(self):
@@ -544,8 +607,13 @@ class TestRetry:
             if call_count < 3:
                 raise smtplib.SMTPException("transient")
 
-        e = FluxMail(object_type="smtp", host=HOST,
-                     username="u@example.com", max_retries=3, retry_delay=0)
+        e = FluxMail(
+            object_type="smtp",
+            host=HOST,
+            username="u@example.com",
+            max_retries=3,
+            retry_delay=0,
+        )
         e.create(subject="Hi", recipients=["a@b.com"], body="Hello")
         with patch.object(e._transport, "send", side_effect=failing_then_ok):
             result = e.send()
@@ -553,11 +621,17 @@ class TestRetry:
         assert "sent successfully" in result
 
     def test_raises_after_exhausting_all_retries(self):
-        e = FluxMail(object_type="smtp", host=HOST,
-                     username="u@example.com", max_retries=2, retry_delay=0)
+        e = FluxMail(
+            object_type="smtp",
+            host=HOST,
+            username="u@example.com",
+            max_retries=2,
+            retry_delay=0,
+        )
         e.create(subject="Hi", recipients=["a@b.com"], body="Hello")
-        with patch.object(e._transport, "send",
-                          side_effect=smtplib.SMTPException("always fails")):
+        with patch.object(
+            e._transport, "send", side_effect=smtplib.SMTPException("always fails")
+        ):
             with pytest.raises(FluxMailException) as exc_info:
                 e.send()
         assert exc_info.value.code == "send_failed"
@@ -570,8 +644,9 @@ class TestRetry:
             call_count += 1
             raise smtplib.SMTPException("fail")
 
-        e = FluxMail(object_type="smtp", host=HOST,
-                     username="u@example.com", max_retries=0)
+        e = FluxMail(
+            object_type="smtp", host=HOST, username="u@example.com", max_retries=0
+        )
         e.create(subject="Hi", recipients=["a@b.com"], body="Hello")
         with patch.object(e._transport, "send", side_effect=count_and_fail):
             with pytest.raises(FluxMailException):
@@ -644,7 +719,9 @@ class TestFromEnv:
 class TestTestConnection:
     def test_returns_diagnostics_dict(self, smtp_email):
         mock_conn = MagicMock()
-        with patch.object(smtp_email._transport, "_make_connection", return_value=mock_conn):
+        with patch.object(
+            smtp_email._transport, "_make_connection", return_value=mock_conn
+        ):
             result = smtp_email.test_connection()
         assert result["ok"] is True
         assert result["relay"] == smtp_email.host.relay
@@ -656,14 +733,17 @@ class TestTestConnection:
     def test_quit_failure_does_not_mask_success(self, smtp_email):
         mock_conn = MagicMock()
         mock_conn.quit.side_effect = Exception("already closed")
-        with patch.object(smtp_email._transport, "_make_connection", return_value=mock_conn):
+        with patch.object(
+            smtp_email._transport, "_make_connection", return_value=mock_conn
+        ):
             result = smtp_email.test_connection()  # must not raise
         assert result["ok"] is True
 
     def test_raises_connection_failed_on_error(self, smtp_email):
         with patch.object(
-            smtp_email._transport, "_make_connection",
-            side_effect=OSError("connection refused")
+            smtp_email._transport,
+            "_make_connection",
+            side_effect=OSError("connection refused"),
         ):
             with pytest.raises(FluxMailException) as exc_info:
                 smtp_email.test_connection()
@@ -681,11 +761,18 @@ class TestTestConnection:
 class TestUnsubscribeHeader:
     def test_headers_set_when_url_provided(self, smtp_email):
         smtp_email.create(
-            subject="Newsletter", recipients=["a@b.com"], body="Hi",
+            subject="Newsletter",
+            recipients=["a@b.com"],
+            body="Hi",
             unsubscribe_url="https://example.com/unsub?token=abc",
         )
-        assert smtp_email.message["List-Unsubscribe"] == "<https://example.com/unsub?token=abc>"
-        assert smtp_email.message["List-Unsubscribe-Post"] == "List-Unsubscribe=One-Click"
+        assert (
+            smtp_email.message["List-Unsubscribe"]
+            == "<https://example.com/unsub?token=abc>"
+        )
+        assert (
+            smtp_email.message["List-Unsubscribe-Post"] == "List-Unsubscribe=One-Click"
+        )
 
     def test_no_headers_by_default(self, smtp_email):
         smtp_email.create(subject="Hi", recipients=["a@b.com"], body="Hello")
@@ -695,7 +782,9 @@ class TestUnsubscribeHeader:
     def test_smtp_header_is_set(self, smtp_email):
         # Rename of old misnamed test — confirms SMTP header is set
         smtp_email.create(
-            subject="Hi", recipients=["a@b.com"], body="Hello",
+            subject="Hi",
+            recipients=["a@b.com"],
+            body="Hello",
             unsubscribe_url="https://example.com/unsub",
         )
         assert smtp_email.message["List-Unsubscribe"] is not None
@@ -703,7 +792,9 @@ class TestUnsubscribeHeader:
     def test_non_https_url_raises(self, smtp_email):
         with pytest.raises(FluxMailException) as exc_info:
             smtp_email.create(
-                subject="Hi", recipients=["a@b.com"], body="Hello",
+                subject="Hi",
+                recipients=["a@b.com"],
+                body="Hello",
                 unsubscribe_url="http://example.com/unsub",
             )
         assert exc_info.value.code == "invalid_params"
@@ -719,8 +810,10 @@ class TestInlineImages:
         img = tmp_path / "logo.png"
         img.write_bytes(b"\x89PNG\r\n\x1a\n" + b"\x00" * 50)
         smtp_email.create(
-            subject="Hi", recipients=["a@b.com"],
-            body='<img src="cid:logo">Hello', html_body=True,
+            subject="Hi",
+            recipients=["a@b.com"],
+            body='<img src="cid:logo">Hello',
+            html_body=True,
             inline_images={"logo": str(img)},
         )
         payload = smtp_email.message.get_payload()
@@ -733,8 +826,10 @@ class TestInlineImages:
     def test_missing_inline_image_raises(self, smtp_email, tmp_path):
         with pytest.raises(FluxMailException) as exc_info:
             smtp_email.create(
-                subject="Hi", recipients=["a@b.com"],
-                body="<b>hi</b>", html_body=True,
+                subject="Hi",
+                recipients=["a@b.com"],
+                body="<b>hi</b>",
+                html_body=True,
                 inline_images={"logo": str(tmp_path / "missing.png")},
             )
         assert exc_info.value.code == "attachment_not_found"
@@ -742,7 +837,9 @@ class TestInlineImages:
     def test_non_dict_inline_images_raises(self, smtp_email):
         with pytest.raises(FluxMailException) as exc_info:
             smtp_email.create(
-                subject="Hi", recipients=["a@b.com"], body="Hi",
+                subject="Hi",
+                recipients=["a@b.com"],
+                body="Hi",
                 inline_images=["logo.png"],
             )
         assert exc_info.value.code == "invalid_params"
@@ -750,14 +847,19 @@ class TestInlineImages:
     def test_inline_images_without_html_body_raises(self, smtp_email):
         with pytest.raises(FluxMailException) as exc_info:
             smtp_email.create(
-                subject="Hi", recipients=["a@b.com"], body="Plain text",
-                html_body=False, inline_images={"logo": "/any/path.png"},
+                subject="Hi",
+                recipients=["a@b.com"],
+                body="Plain text",
+                html_body=False,
+                inline_images={"logo": "/any/path.png"},
             )
         assert exc_info.value.code == "invalid_params"
 
     def test_inline_images_outlook_raises(self, smtp_email):
-        with patch.object(FluxMail, "is_outlook", return_value=True), \
-             patch.object(FluxMail, "is_smtp", return_value=False):
+        with (
+            patch.object(FluxMail, "is_outlook", return_value=True),
+            patch.object(FluxMail, "is_smtp", return_value=False),
+        ):
             smtp_email.create(subject="Hi", recipients=["a@b.com"], body="Hi")
             smtp_email.inline_images = {"logo": "/fake/logo.png"}
             with pytest.raises(FluxMailException) as exc_info:
@@ -773,8 +875,10 @@ class TestInlineImages:
         img = tmp_path / "logo.png"
         img.write_bytes(b"\x89PNG\r\n\x1a\n" + b"\x00" * 50)
         smtp_email.create(
-            subject="Hi", recipients=["a@b.com"],
-            body='<img src="cid:logo">Hello', html_body=True,
+            subject="Hi",
+            recipients=["a@b.com"],
+            body='<img src="cid:logo">Hello',
+            html_body=True,
             inline_images={"logo": str(img)},
         )
         assert smtp_email.message.get_content_type() == "multipart/related"
@@ -786,9 +890,11 @@ class TestCSSInlining:
         # trigger external entity resolution on macOS system libxml2)
         with patch("premailer.transform", return_value="<p>styled</p>") as mock_t:
             smtp_email.create(
-                subject="Hi", recipients=["a@b.com"],
+                subject="Hi",
+                recipients=["a@b.com"],
                 body='<p style="color: red">Hello</p>',
-                html_body=True, inline_css=True,
+                html_body=True,
+                inline_css=True,
             )
         mock_t.assert_called_once()
         assert smtp_email.is_created
@@ -796,8 +902,11 @@ class TestCSSInlining:
     def test_inline_css_ignored_when_not_html(self, smtp_email):
         # inline_css=True with html_body=False must not raise
         smtp_email.create(
-            subject="Hi", recipients=["a@b.com"],
-            body="Plain text", html_body=False, inline_css=True,
+            subject="Hi",
+            recipients=["a@b.com"],
+            body="Plain text",
+            html_body=False,
+            inline_css=True,
         )
         assert smtp_email.is_created
 
@@ -805,14 +914,19 @@ class TestCSSInlining:
         with patch("premailer.transform", side_effect=Exception("bad html")):
             with pytest.raises(FluxMailException) as exc_info:
                 smtp_email.create(
-                    subject="Hi", recipients=["a@b.com"],
-                    body="<bad>", html_body=True, inline_css=True,
+                    subject="Hi",
+                    recipients=["a@b.com"],
+                    body="<bad>",
+                    html_body=True,
+                    inline_css=True,
                 )
         assert exc_info.value.code == "css_inline_failed"
 
     def test_inline_css_false_by_default(self, smtp_email):
         smtp_email.create(
-            subject="Hi", recipients=["a@b.com"],
-            body='<style>p{color:red}</style><p>Hi</p>', html_body=True,
+            subject="Hi",
+            recipients=["a@b.com"],
+            body="<style>p{color:red}</style><p>Hi</p>",
+            html_body=True,
         )
         assert smtp_email.is_created

@@ -29,8 +29,8 @@ class TestSendBatch:
         mock_cls = MagicMock(return_value=mock_conn)
         messages = [
             {"subject": "Good", "recipients": ["a@b.com"], "body": "ok"},
-            {"subject": "Bad",  "recipients": ["not-valid"], "body": "fail"},
-            {"subject": "Good2","recipients": ["b@b.com"], "body": "ok"},
+            {"subject": "Bad", "recipients": ["not-valid"], "body": "fail"},
+            {"subject": "Good2", "recipients": ["b@b.com"], "body": "ok"},
         ]
         with patch("fluxmail._transport.smtplib.SMTP", mock_cls):
             mailer = FluxMail(object_type="smtp", host=HOST, username="u@example.com")
@@ -44,7 +44,9 @@ class TestSendBatch:
     def test_on_success_callback_called(self):
         successes = []
         mock_conn = MagicMock()
-        with patch("fluxmail._transport.smtplib.SMTP", MagicMock(return_value=mock_conn)):
+        with patch(
+            "fluxmail._transport.smtplib.SMTP", MagicMock(return_value=mock_conn)
+        ):
             mailer = FluxMail(object_type="smtp", host=HOST, username="u@example.com")
             BulkSender(mailer).send_batch(
                 [{"subject": "Hi", "recipients": ["a@b.com"], "body": "Hello"}],
@@ -57,7 +59,9 @@ class TestSendBatch:
     def test_on_error_callback_called(self):
         errors = []
         mock_conn = MagicMock()
-        with patch("fluxmail._transport.smtplib.SMTP", MagicMock(return_value=mock_conn)):
+        with patch(
+            "fluxmail._transport.smtplib.SMTP", MagicMock(return_value=mock_conn)
+        ):
             mailer = FluxMail(object_type="smtp", host=HOST, username="u@example.com")
             BulkSender(mailer).send_batch(
                 [{"subject": "Hi", "recipients": ["bad-email"], "body": "Hello"}],
@@ -77,7 +81,9 @@ class TestSendBatch:
 
     def test_errors_list_empty_on_full_success(self):
         mock_conn = MagicMock()
-        with patch("fluxmail._transport.smtplib.SMTP", MagicMock(return_value=mock_conn)):
+        with patch(
+            "fluxmail._transport.smtplib.SMTP", MagicMock(return_value=mock_conn)
+        ):
             mailer = FluxMail(object_type="smtp", host=HOST, username="u@example.com")
             result = BulkSender(mailer).send_batch(make_messages(2), progress=False)
         assert result["errors"] == []
@@ -88,10 +94,17 @@ class TestSendBatch:
         mock_conn = MagicMock()
         messages = [
             {"subject": "Good", "recipients": ["a@b.com"], "body": "ok"},
-            {"subject": "Bad",  "recipients": ["a@b.com"], "body": "ok", "bad_kwarg": True},
-            {"subject": "Good2","recipients": ["b@b.com"], "body": "ok"},
+            {
+                "subject": "Bad",
+                "recipients": ["a@b.com"],
+                "body": "ok",
+                "bad_kwarg": True,
+            },
+            {"subject": "Good2", "recipients": ["b@b.com"], "body": "ok"},
         ]
-        with patch("fluxmail._transport.smtplib.SMTP", MagicMock(return_value=mock_conn)):
+        with patch(
+            "fluxmail._transport.smtplib.SMTP", MagicMock(return_value=mock_conn)
+        ):
             mailer = FluxMail(object_type="smtp", host=HOST, username="u@example.com")
             result = BulkSender(mailer).send_batch(messages, progress=False)
         assert result["sent"] == 2
@@ -107,7 +120,9 @@ class TestSendBatchAsync:
         mock_smtp = AsyncMock()
         mock_smtp.__aenter__ = AsyncMock(return_value=mock_smtp)
         mock_smtp.__aexit__ = AsyncMock(return_value=False)
-        with patch("fluxmail._transport.aiosmtplib.SMTP", MagicMock(return_value=mock_smtp)):
+        with patch(
+            "fluxmail._transport.aiosmtplib.SMTP", MagicMock(return_value=mock_smtp)
+        ):
             mailer = FluxMail(object_type="smtp", host=HOST, username="u@example.com")
             result = await BulkSender(mailer).send_batch_async(
                 make_messages(3), progress=False
@@ -122,11 +137,13 @@ class TestSendBatchAsync:
         mock_smtp.__aenter__ = AsyncMock(return_value=mock_smtp)
         mock_smtp.__aexit__ = AsyncMock(return_value=False)
         messages = [
-            {"subject": "Good",  "recipients": ["a@b.com"], "body": "ok"},
-            {"subject": "Bad",   "recipients": ["not-valid"], "body": "fail"},
+            {"subject": "Good", "recipients": ["a@b.com"], "body": "ok"},
+            {"subject": "Bad", "recipients": ["not-valid"], "body": "fail"},
             {"subject": "Good2", "recipients": ["b@b.com"], "body": "ok"},
         ]
-        with patch("fluxmail._transport.aiosmtplib.SMTP", MagicMock(return_value=mock_smtp)):
+        with patch(
+            "fluxmail._transport.aiosmtplib.SMTP", MagicMock(return_value=mock_smtp)
+        ):
             mailer = FluxMail(object_type="smtp", host=HOST, username="u@example.com")
             result = await BulkSender(mailer).send_batch_async(messages, progress=False)
         assert result["sent"] == 2
@@ -138,9 +155,15 @@ class TestSendBatchAsync:
         mock_smtp = AsyncMock()
         mock_smtp.__aenter__ = AsyncMock(return_value=mock_smtp)
         mock_smtp.__aexit__ = AsyncMock(return_value=False)
-        with patch("fluxmail._transport.aiosmtplib.SMTP", MagicMock(return_value=mock_smtp)):
-            with patch("fluxmail.bulk.asyncio.sleep", new_callable=AsyncMock) as mock_sleep:
-                mailer = FluxMail(object_type="smtp", host=HOST, username="u@example.com")
+        with patch(
+            "fluxmail._transport.aiosmtplib.SMTP", MagicMock(return_value=mock_smtp)
+        ):
+            with patch(
+                "fluxmail.bulk.asyncio.sleep", new_callable=AsyncMock
+            ) as mock_sleep:
+                mailer = FluxMail(
+                    object_type="smtp", host=HOST, username="u@example.com"
+                )
                 await BulkSender(mailer).send_batch_async(
                     make_messages(2), progress=False, max_per_second=10
                 )
@@ -151,7 +174,9 @@ class TestSendBatchAsync:
     async def test_negative_max_per_second_raises(self):
         mailer = FluxMail(object_type="smtp", host=HOST, username="u@example.com")
         with pytest.raises(FluxMailException) as exc_info:
-            await BulkSender(mailer).send_batch_async([], progress=False, max_per_second=-1)
+            await BulkSender(mailer).send_batch_async(
+                [], progress=False, max_per_second=-1
+            )
         assert exc_info.value.code == "invalid_config"
 
     async def test_outlook_mailer_raises_invalid_config(self):
@@ -167,7 +192,9 @@ class TestSendBatchAsync:
         mock_smtp = AsyncMock()
         mock_smtp.__aenter__ = AsyncMock(return_value=mock_smtp)
         mock_smtp.__aexit__ = AsyncMock(return_value=False)
-        with patch("fluxmail._transport.aiosmtplib.SMTP", MagicMock(return_value=mock_smtp)):
+        with patch(
+            "fluxmail._transport.aiosmtplib.SMTP", MagicMock(return_value=mock_smtp)
+        ):
             mailer = FluxMail(object_type="smtp", host=HOST, username="u@example.com")
             await BulkSender(mailer).send_batch_async(
                 [{"subject": "Hi", "recipients": ["bad"], "body": "Hello"}],

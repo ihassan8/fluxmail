@@ -1,4 +1,5 @@
 """Test utilities for FluxMail — not exported from __init__.py."""
+
 from contextlib import contextmanager
 from unittest.mock import MagicMock, patch
 

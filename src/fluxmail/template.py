@@ -21,8 +21,11 @@ class EmailTemplate:
     def from_file(cls, path: str, autoescape: bool = False) -> "EmailTemplate":
         """Load a template from a file (UTF-8 encoding)."""
         from .utils import FluxMailException
+
         try:
             with open(path, "r", encoding="utf-8") as f:
                 return cls(f.read(), autoescape=autoescape)
         except OSError as e:
-            raise FluxMailException(f"Cannot read template '{path}': {e}", code="read_error") from e
+            raise FluxMailException(
+                f"Cannot read template '{path}': {e}", code="read_error"
+            ) from e
