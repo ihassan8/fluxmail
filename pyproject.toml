@@ -32,8 +32,7 @@ requires-python = ">=3.8"
 keywords = ["email", "automation", "smtp", "outlook", "domain", "fluxmail"]
 
 dynamic = ["version", "dependencies"]
-license = 'MIT'
-license-files = ['LICENSE']
+license = {text = "MIT"}
 
 [project.urls]
 homepage = "https://www.vertexaiautomations.com"
