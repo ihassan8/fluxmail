@@ -81,3 +81,22 @@ class TestSendBatch:
             mailer = FluxMail(object_type="smtp", host=HOST, username="u@example.com")
             result = BulkSender(mailer).send_batch(make_messages(2), progress=False)
         assert result["errors"] == []
+
+    def test_non_fluxmail_exception_does_not_abort_batch(self):
+        # A bad kwarg (typo) causes TypeError in create(); the remaining messages
+        # must still be sent and the error must be recorded, not propagated.
+        mock_conn = MagicMock()
+        messages = [
+            {"subject": "Good", "recipients": ["a@b.com"], "body": "ok"},
+            {"subject": "Bad",  "recipients": ["a@b.com"], "body": "ok", "bad_kwarg": True},
+            {"subject": "Good2","recipients": ["b@b.com"], "body": "ok"},
+        ]
+        with patch("fluxmail._transport.smtplib.SMTP", MagicMock(return_value=mock_conn)):
+            mailer = FluxMail(object_type="smtp", host=HOST, username="u@example.com")
+            result = BulkSender(mailer).send_batch(messages, progress=False)
+        assert result["sent"] == 2
+        assert result["failed"] == 1
+        assert result["total"] == 3
+        assert len(result["errors"]) == 1
+        assert result["errors"][0][0] == 1
+        assert result["errors"][0][1].code == "send_failed"

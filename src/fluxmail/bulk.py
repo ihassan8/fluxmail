@@ -53,11 +53,15 @@ class BulkSender:
                         sent += 1
                         if on_success:
                             on_success(i, result)
-                    except FluxMailException as e:
+                    except Exception as exc:
                         failed += 1
-                        errors.append((i, e))
+                        err = (
+                            exc if isinstance(exc, FluxMailException)
+                            else FluxMailException(f"Message {i} failed: {exc}", code="send_failed")
+                        )
+                        errors.append((i, err))
                         if on_error:
-                            on_error(i, e)
+                            on_error(i, err)
                     if prog is not None:
                         prog.advance(task_id)
 

@@ -144,7 +144,7 @@ def send(
 
     if tls and ssl:
         typer.echo("[ERROR] --tls and --ssl are mutually exclusive.", err=True)
-        raise typer.Exit(2)
+        raise typer.Exit(1)
 
     if body_file:
         try:

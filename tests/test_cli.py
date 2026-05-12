@@ -200,6 +200,6 @@ def test_retry_delay_flag():
     assert result.exit_code == 0
 
 
-def test_ssl_and_tls_together_exits_2():
+def test_ssl_and_tls_together_exits_1():
     result = runner.invoke(app, BASE + ["--ssl", "--tls"])
-    assert result.exit_code == 2
+    assert result.exit_code == 1
