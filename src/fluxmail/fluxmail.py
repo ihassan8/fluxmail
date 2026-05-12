@@ -384,6 +384,11 @@ class FluxMail:
 
     def _handle_unsubscribe(self) -> None:
         if self.unsubscribe_url and self.is_smtp():
+            if not self.unsubscribe_url.startswith("https://"):
+                raise FluxMailException(
+                    "unsubscribe_url must start with 'https://' (required by RFC 8058).",
+                    code="invalid_params",
+                )
             self.message["List-Unsubscribe"] = f"<{self.unsubscribe_url}>"
             self.message["List-Unsubscribe-Post"] = "List-Unsubscribe=One-Click"
 
@@ -402,6 +407,10 @@ class FluxMail:
             raise FluxMailException(
                 "inline_images must be a dict mapping cid_name to file_path.",
                 code="invalid_params",
+            )
+        if self.inline_images and not self.html_body:
+            raise FluxMailException(
+                "inline_images requires html_body=True.", code="invalid_params"
             )
         if self.priority and self.priority not in _PRIORITY_MAP:
             raise FluxMailException(
@@ -481,17 +490,15 @@ class FluxMail:
             mime_type, _ = mimetypes.guess_type(file_path)
             content_type = mime_type or "application/octet-stream"
             maintype, subtype = content_type.split("/", 1)
-            self.message.add_attachment(
+            # add_related() creates a multipart/related structure (RFC 2387) so
+            # clients render the image inline rather than as an attachment.
+            self.message.add_related(
                 data,
                 maintype=maintype,
                 subtype=subtype,
                 filename=name,
-                disposition="inline",
+                cid=f"<{cid_name}>",
             )
-            # Set Content-ID on the last payload part (compatible with all Python 3.8+)
-            payload = self.message.get_payload()
-            if isinstance(payload, list) and payload:
-                payload[-1]["Content-ID"] = f"<{cid_name}>"
             self.logger.debug(
                 "Inline image attached: cid=%s (%s, %d bytes)",
                 cid_name, content_type, len(data),

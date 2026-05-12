@@ -20,6 +20,11 @@ class FluxMailBackend(BaseEmailBackend):
 
         EMAIL_FLUXMAIL_MAX_RETRIES = 3
         EMAIL_FLUXMAIL_RETRY_DELAY = 1.0
+
+    .. note::
+        **Thread safety:** ``_mailer`` is a single ``FluxMail`` instance shared
+        across all ``send_messages()`` calls. Do not use this backend from
+        multiple threads concurrently without external synchronisation.
     """
 
     def __init__(self, fail_silently: bool = False, **kwargs) -> None:

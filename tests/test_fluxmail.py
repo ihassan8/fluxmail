@@ -679,13 +679,26 @@ class TestUnsubscribeHeader:
         assert smtp_email.message["List-Unsubscribe"] is None
         assert smtp_email.message["List-Unsubscribe-Post"] is None
 
-    def test_silently_ignored_for_outlook(self, smtp_email):
+    def test_smtp_header_is_set(self, smtp_email):
+        # Rename of old misnamed test — confirms SMTP header is set
         smtp_email.create(
             subject="Hi", recipients=["a@b.com"], body="Hello",
             unsubscribe_url="https://example.com/unsub",
         )
-        # SMTP instance — header should be set
         assert smtp_email.message["List-Unsubscribe"] is not None
+
+    def test_non_https_url_raises(self, smtp_email):
+        with pytest.raises(FluxMailException) as exc_info:
+            smtp_email.create(
+                subject="Hi", recipients=["a@b.com"], body="Hello",
+                unsubscribe_url="http://example.com/unsub",
+            )
+        assert exc_info.value.code == "invalid_params"
+
+    def test_ignored_when_no_url(self, smtp_email):
+        # No unsubscribe_url — _handle_unsubscribe is a no-op
+        smtp_email.create(subject="Hi", recipients=["a@b.com"], body="Hello")
+        assert smtp_email.message["List-Unsubscribe"] is None
 
 
 class TestInlineImages:
@@ -718,6 +731,14 @@ class TestInlineImages:
             smtp_email.create(
                 subject="Hi", recipients=["a@b.com"], body="Hi",
                 inline_images=["logo.png"],
+            )
+        assert exc_info.value.code == "invalid_params"
+
+    def test_inline_images_without_html_body_raises(self, smtp_email):
+        with pytest.raises(FluxMailException) as exc_info:
+            smtp_email.create(
+                subject="Hi", recipients=["a@b.com"], body="Plain text",
+                html_body=False, inline_images={"logo": "/any/path.png"},
             )
         assert exc_info.value.code == "invalid_params"
 

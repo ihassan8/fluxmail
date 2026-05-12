@@ -110,6 +110,10 @@ class BulkSender:
             ``{"sent": int, "failed": int, "total": int,
                "errors": List[Tuple[int, FluxMailException]]}``
         """
+        if not self._mailer.is_smtp():
+            raise FluxMailException(
+                "send_batch_async() is only supported for SMTP.", code="invalid_config"
+            )
         if max_per_second < 0:
             raise FluxMailException(
                 "max_per_second must be >= 0.", code="invalid_config"
@@ -130,7 +134,7 @@ class BulkSender:
                         sent += 1
                         if on_success:
                             on_success(i, "Email sent successfully via SMTP.")
-                        if max_per_second > 0:
+                        if max_per_second > 0 and i < total - 1:
                             await asyncio.sleep(1 / max_per_second)
                     except Exception as exc:
                         failed += 1

@@ -144,7 +144,8 @@ class TestSendBatchAsync:
                 await BulkSender(mailer).send_batch_async(
                     make_messages(2), progress=False, max_per_second=10
                 )
-        assert mock_sleep.call_count == 2
+        # 2 messages → sleep after message 0 only (not after the last)
+        assert mock_sleep.call_count == 1
         mock_sleep.assert_called_with(pytest.approx(0.1, rel=1e-3))
 
     async def test_negative_max_per_second_raises(self):
