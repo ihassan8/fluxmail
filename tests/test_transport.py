@@ -1,3 +1,4 @@
+import logging
 import smtplib
 from unittest.mock import AsyncMock, MagicMock, patch
 
@@ -8,6 +9,9 @@ from fluxmail._transport import _SMTPTransport
 HOST = "smtp.example.com"
 PORT = 587
 
+_NULL_LOGGER = logging.getLogger("test_transport")
+_NULL_LOGGER.addHandler(logging.NullHandler())
+
 
 def make_transport(**kwargs):
     defaults = dict(
@@ -15,6 +19,7 @@ def make_transport(**kwargs):
         use_ssl=False, use_tls=False,
         ssl_context=None, timeout=30,
         username=None, password=None,
+        logger=_NULL_LOGGER,
     )
     defaults.update(kwargs)
     return _SMTPTransport(**defaults)
