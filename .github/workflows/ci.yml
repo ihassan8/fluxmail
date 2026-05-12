@@ -28,7 +28,6 @@ jobs:
     with:
       install-command: 'pip install -e ".[test]" mypy'
       typecheck-command: 'mypy src/ --ignore-missing-imports'
-      typecheck-command: 'mypy src/ --ignore-missing-imports'
 
   audit:
     name: Audit
