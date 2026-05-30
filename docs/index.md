@@ -21,9 +21,9 @@ hide:
 
 [![PyPI](https://img.shields.io/pypi/v/fluxmail?color=2563eb&logo=pypi&logoColor=white)](https://pypi.org/project/fluxmail/)
 [![Python](https://img.shields.io/pypi/pyversions/fluxmail?color=2563eb&logo=python&logoColor=white)](https://pypi.org/project/fluxmail/)
-[![License](https://img.shields.io/badge/license-MIT-2563eb.svg)](https://github.com/vertex-ai-automations/fluxmail/blob/main/LICENSE.txt)
+[![License](https://img.shields.io/badge/license-MIT-2563eb.svg)](https://github.com/ihassan8/fluxmail/blob/main/LICENSE.txt)
 [![Downloads](https://img.shields.io/pypi/dm/fluxmail?color=2563eb)](https://pypi.org/project/fluxmail/)
-[![CI](https://img.shields.io/github/actions/workflow/status/vertex-ai-automations/fluxmail/release.yml?branch=main&label=CI&logo=github)](https://github.com/vertex-ai-automations/fluxmail/actions)
+[![CI](https://img.shields.io/github/actions/workflow/status/ihassan8/fluxmail/release.yml?branch=main&label=CI&logo=github)](https://github.com/ihassan8/fluxmail/actions)
 
 </div>
 

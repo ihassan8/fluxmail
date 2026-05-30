@@ -1,11 +1,11 @@
 [project]
 site_name = "FluxMail"
 site_description = "Send emails from Python or the terminal — any SMTP server, zero config."
-site_url = "https://vertex-ai-automations.github.io/fluxmail"
+site_url = "https://ihassan8.github.io/fluxmail"
 site_dir = "public"
 repo_name = "FluxMail"
-repo_url = "https://github.com/vertex-ai-automations/fluxmail"
-copyright = "Copyright &copy; 2024–2026 Vertex AI Automations"
+repo_url = "https://github.com/ihassan8/fluxmail"
+
 extra_css = ["css/extra.css"]
 
 nav = [
@@ -81,7 +81,7 @@ generator = false
 
 [[project.extra.social]]
 icon = "fontawesome/brands/github"
-link = "https://github.com/vertex-ai-automations/fluxmail"
+link = "https://github.com/ihassan8/fluxmail"
 name = "FluxMail on GitHub"
 
 [[project.extra.social]]
@@ -163,7 +163,7 @@ pygments_lang_class = true
 [project.markdown_extensions.pymdownx.magiclink]
 normalize_issue_symbols = true
 repo_url_shorthand = true
-user = "vertex-ai-automations"
+user = "ihassan8"
 repo = "fluxmail"
 
 [project.markdown_extensions.pymdownx.mark]

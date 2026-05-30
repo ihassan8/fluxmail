@@ -5,9 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "fluxmail"
 description = "A Python library for Email Automation. FluxMail allows you to create and send emails using either SMTP or Outlook. It supports both Windows and Linux platforms (with Outlook available only on Windows)"
-authors = [
-    {name = "Vertex AI Automations", email = "info@vertexaiautomations.com"}
-]
+
 readme = "README.md"
 
 classifiers = [
@@ -35,10 +33,10 @@ dynamic = ["version", "dependencies"]
 license = {text = "MIT"}
 
 [project.urls]
-homepage = "https://www.vertexaiautomations.com"
-documentation = "https://vertex-ai-automations.github.io/fluxmail"
-repository = 'https://github.com/vertex-ai-automations/fluxmail'
-issues = "https://github.com/vertex-ai-automations/fluxmail/issues/new"
+homepage = "https://github.com/ihassan8"
+documentation = "https://ihassan8.github.io/fluxmail"
+repository = 'https://github.com/ihassan8/fluxmail'
+issues = "https://github.com/ihassan8/fluxmail/issues/new"
 
 [project.scripts]
 fluxmail = "fluxmail.fluxmail_cli:main"
